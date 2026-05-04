@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use redis::AsyncCommands;
 use thiserror::Error;
 
-use crate::application::ports::output::{AuthRepository, AuthRepositoryError};
-use super::RedisAdapter;
+use crate::application::ports::output::{SessionPort, SessionPortError};
+use super::RedisSessionAdapter;
 
-impl RedisAdapter {
+impl RedisSessionAdapter {
     async fn do_store_session(&self, refresh_token: &str, user_id: &str, ttl_days: u64) -> Result<(), LocalError> {
         let mut conn = self.client
             .get_multiplexed_async_connection()
@@ -34,12 +34,12 @@ impl RedisAdapter {
 }
 
 #[async_trait]
-impl AuthRepository for RedisAdapter {
-    async fn store_session(&self, refresh_token: &str, user_id: &str, ttl_days: u64) -> Result<(), AuthRepositoryError> {
+impl SessionPort for RedisSessionAdapter {
+    async fn store_session(&self, refresh_token: &str, user_id: &str, ttl_days: u64) -> Result<(), SessionPortError> {
         Ok(self.do_store_session(refresh_token, user_id, ttl_days).await?)
     }
 
-    async fn consume_session(&self, refresh_token: &str) -> Result<Option<String>, AuthRepositoryError> {
+    async fn consume_session(&self, refresh_token: &str) -> Result<Option<String>, SessionPortError> {
         Ok(self.do_consume_session(refresh_token).await?)
     }
 }
@@ -50,10 +50,10 @@ pub enum LocalError {
     Redis(#[from] redis::RedisError),
 }
 
-impl From<LocalError> for AuthRepositoryError {
+impl From<LocalError> for SessionPortError {
     fn from(e: LocalError) -> Self {
         match e {
-            LocalError::Redis(e) => AuthRepositoryError::Internal(e.to_string()),
+            LocalError::Redis(e) => SessionPortError::Internal(e.to_string()),
         }
     }
 }

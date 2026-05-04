@@ -11,7 +11,7 @@ use hexum::{
     prelude::*,
     telemetry,
     application::services::AuthService,
-    infrastructure::{PostgresAdapter, RedisAdapter, PasetoSecurityAdapter},
+    infrastructure::{PostgresAdapter, RedisSessionAdapter, PasetoSecurityAdapter},
     presentation::http::{self, routes},
 };
 
@@ -25,13 +25,13 @@ async fn main() -> Result<()> {
     let (subscriber, _guard) = telemetry::get_subscriber(&config).await?;
     telemetry::init(subscriber);
 
-    let pg_adapter = PostgresAdapter::new(&config).await?;
-    let redis_adapter = RedisAdapter::new(&config)?;
-    let paseto_security_adapter = PasetoSecurityAdapter::new(config.session.secret_key.clone());
+    let pg_adapter = Arc::new(PostgresAdapter::new(&config).await?);
+    let redis_session_adapter = Arc::new(RedisSessionAdapter::new(&config)?);
+    let paseto_security_adapter = Arc::new(PasetoSecurityAdapter::new(config.session.secret_key.clone()));
 
     let auth_service = AuthService::new(
-        redis_adapter,
         pg_adapter,
+        redis_session_adapter,
         paseto_security_adapter,
     );
 

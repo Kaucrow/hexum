@@ -1,7 +1,7 @@
 mod postgres;
-mod redis;
+mod session;
 mod security;
 
 pub use postgres::PostgresAdapter;
-pub use redis::RedisAdapter;
+pub use session::RedisSessionAdapter;
 pub use security::PasetoSecurityAdapter;
