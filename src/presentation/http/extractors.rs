@@ -1,17 +1,17 @@
-use crate::{
-    Config,
-    AppState,
-    domain::user::User,
-    application::ports::UserRepository,
-    application::auth::verify_access_token,
-};
+use std::sync::Arc;
 
 use axum::{
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
 };
 use axum_extra::extract::cookie::CookieJar;
-use std::sync::Arc;
+
+use crate::{
+    prelude::*,
+    AppState,
+    domain::user::User,
+    application::ports::input::AuthUseCase,
+};
 
 pub struct AuthenticatedUser(pub User);
 
@@ -22,10 +22,10 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
+        info!("Verification request received");
 
         // Pull dependencies from AppState
-        let user_repo: Arc<dyn UserRepository> = axum::extract::FromRef::from_ref(state);
-        let config: Arc<Config> = axum::extract::FromRef::from_ref(state);
+        let auth_service: Arc<dyn AuthUseCase> = axum::extract::FromRef::from_ref(state);
 
         // Grab the CookieJar from the incoming headers
         let jar = CookieJar::from_headers(&parts.headers);
@@ -35,15 +35,14 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
             .map(|cookie| cookie.value())
             .ok_or(StatusCode::UNAUTHORIZED)?;
 
-        // Verify the PASETO token & get the user ID.
-        // This fails if the token is tampered with or the token expired.
-        let user_id = verify_access_token(access_token, &config.session.secret_key)
-            .map_err(|_| StatusCode::UNAUTHORIZED)?;
+        let user = auth_service
+            .verify_user(access_token)
+            .await
+            .map_err(|e| {
+                warn!("Verification failed: {e}");
+                StatusCode::UNAUTHORIZED
+            })?;
 
-        // Get the user by their ID
-        match user_repo.get_user_by_id(&user_id).await {
-            Some(user) => Ok(AuthenticatedUser(user)),
-            None => Err(StatusCode::UNAUTHORIZED),  // User might have been deleted
-        }
+        Ok(Self(user))
     }
 }

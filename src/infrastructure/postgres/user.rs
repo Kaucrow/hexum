@@ -1,5 +1,5 @@
 use crate::{
-    application::ports::UserRepository,
+    application::ports::output::UserRepository,
     domain::user::{User, Role, EmailAddress},
 };
 use super::{
@@ -14,10 +14,10 @@ impl UserRepository for PostgresAdapter {
         let queries = QUERIES.get().expect("Queries not initialized.");
 
         let record = sqlx::query_as::<_, UserDbRow>(&queries.user.get_by_id)
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await
-        .ok()??;
+            .bind(id)
+            .fetch_optional(&self.pool)
+            .await
+            .ok()??;
 
         let parsed_roles: Vec<Role> = record.roles
             .into_iter()
@@ -45,10 +45,10 @@ impl UserRepository for PostgresAdapter {
         let queries = QUERIES.get().expect("Queries not initialized.");
 
         let record = sqlx::query_as::<_, UserDbRow>(&queries.user.get_by_token)
-        .bind(token)
-        .fetch_optional(&self.pool)
-        .await
-        .ok()??;
+            .bind(token)
+            .fetch_optional(&self.pool)
+            .await
+            .ok()??;
 
         let parsed_roles: Vec<Role> = record.roles
             .into_iter()
@@ -76,10 +76,10 @@ impl UserRepository for PostgresAdapter {
         let queries = QUERIES.get().expect("Queries not initialized.");
 
         let record = sqlx::query_as::<_, UserDbRow>(&queries.user.get_by_username)
-        .bind(username)
-        .fetch_optional(&self.pool)
-        .await
-        .ok()??;
+            .bind(username)
+            .fetch_optional(&self.pool)
+            .await
+            .ok()??;
 
         let parsed_roles: Vec<Role> = record.roles
             .into_iter()

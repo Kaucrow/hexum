@@ -1,9 +1,8 @@
 use crate::{
-    Config,
+    prelude::*,
     AppState,
     application::{
-        ports::{SessionRepository, UserRepository},
-        auth::{generate_access_token, generate_refresh_token, verify_password}
+        ports::input::{AuthUseCase, AuthUseCaseError},
     },
     presentation::http::dtos::auth::{LoginRequest, LoginResponse},
 };
@@ -24,33 +23,38 @@ use std::sync::Arc;
 )]
 #[axum::debug_handler(state = AppState)]
 pub async fn login(
-    State(config): State<Arc<Config>>,
-    State(session_repo): State<Arc<dyn SessionRepository>>,
-    State(user_repo): State<Arc<dyn UserRepository>>,
+    State(auth): State<Arc<dyn AuthUseCase>>,
     jar: CookieJar,
     Json(payload): Json<LoginRequest>,
 ) -> Result<(CookieJar, Json<LoginResponse>), StatusCode> {
+    info!("Login attempt for user `{}`", &payload.username);
 
-    let user = user_repo.get_user_by_username(&payload.username).await
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-
-    if !verify_password(&payload.password, &user.password) {
-        return Err(StatusCode::UNAUTHORIZED);
-    }
-
-    let access_token = generate_access_token(&user.id, &config.session.secret_key).unwrap();
-    let refresh_token = generate_refresh_token();
-
-    session_repo
-    .store_session(&refresh_token, &user.id, 7)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let tokens = auth
+        .login_user(&payload.username, &payload.password)
+        .await
+        .map_err(|e| {
+            warn!("Login failed for user `{}`: {}", &payload.username, e);
+            match e {
+                AuthUseCaseError::InvalidUsername | AuthUseCaseError::InvalidPassword => {
+                    StatusCode::UNAUTHORIZED
+                }
+                AuthUseCaseError::Internal(e) => {
+                    error!("Login server error: {e}");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+                _ => {
+                    error!("Login unexpected error: {e}.");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+            }
+        })?;
 
     // Attach cookies
     // Access token goes to the root path ("/")
-    let access_cookie = build_cookie("access_token", access_token, "/");
-    // Refresh token strictly goes to the refresh endpoint to save bandwidth and increase security
-    let refresh_cookie = build_cookie("refresh_token", refresh_token, "/auth/refresh");
+    let access_cookie = build_cookie("access_token", tokens.access_token, "/");
+    let refresh_cookie = build_cookie("refresh_token", tokens.refresh_token, "/auth/refresh-session");
+
+    info!("Login successful for user `{}`", &payload.username);
 
     let response = LoginResponse { message: "Success".to_string() };
     Ok((jar.add(access_cookie).add(refresh_cookie), Json(response)))
@@ -58,7 +62,7 @@ pub async fn login(
 
 #[utoipa::path(
     post,
-    path = "/auth/refresh",
+    path = "/auth/refresh-session",
     responses(
         (status = 200, description = "Token refreshed", body = LoginResponse),
         (status = 401, description = "Unauthorized - Invalid credentials"),
@@ -67,10 +71,8 @@ pub async fn login(
     tags = ["Authentication"]
 )]
 #[axum::debug_handler(state = AppState)]
-pub async fn refresh(
-    State(config): State<Arc<Config>>,
-    State(session_repo): State<Arc<dyn SessionRepository>>,
-    State(user_repo): State<Arc<dyn UserRepository>>,
+pub async fn refresh_session(
+    State(auth): State<Arc<dyn AuthUseCase>>,
     jar: CookieJar,
 ) -> Result<CookieJar, StatusCode> {
 
@@ -79,28 +81,29 @@ pub async fn refresh(
         .map(|c| c.value().to_string())
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
-    // Consume it from Redis (verifies & deletes the token)
-    let user_id = session_repo.consume_session(&refresh_token).await
-        .or(Err(StatusCode::INTERNAL_SERVER_ERROR))?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-
-    // Fetch the user (ensure they aren't deactivated/deleted since last login)
-    let user = user_repo.get_user_by_id(&user_id).await
-        .ok_or(StatusCode::UNAUTHORIZED)?;
-
-    // Generate brand new tokens
-    let new_access = generate_access_token(&user.id, &config.session.secret_key).unwrap();
-    let new_refresh = generate_refresh_token();
-
-    // Store the new refresh token in Redis
-    session_repo
-    .store_session(&new_refresh, &user.id, 7)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let new_tokens = auth
+        .refresh_session(&refresh_token)
+        .await
+        .map_err(|e| {
+            warn!("Session refresh failed: {e}");
+            match e {
+                AuthUseCaseError::InvalidRefreshToken => {
+                    StatusCode::UNAUTHORIZED
+                }
+                AuthUseCaseError::Internal(e) => {
+                    error!("Session refresh server error: {e}");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+                _ => {
+                    error!("Session refresh unexpected error: {e}.");
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+            }
+        })?;
 
     // Return the updated cookies
-    let access_cookie = build_cookie("access_token", new_access, "/");
-    let refresh_cookie = build_cookie("refresh_token", new_refresh, "/auth/refresh");
+    let access_cookie = build_cookie("access_token", new_tokens.access_token, "/");
+    let refresh_cookie = build_cookie("refresh_token", new_tokens.refresh_token, "/auth/refresh-session");
 
     Ok(jar.add(access_cookie).add(refresh_cookie))
 }

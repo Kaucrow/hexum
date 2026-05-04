@@ -909,6 +909,7 @@ dependencies = [
  "sqlx",
  "strip-ansi-escapes",
  "strum",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-appender",

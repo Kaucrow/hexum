@@ -6,6 +6,7 @@ use sqlx::{
 };
 use anyhow::{Result, Context};
 
+#[derive(Clone)]
 pub struct PostgresAdapter {
     pub pool: PgPool,
 }

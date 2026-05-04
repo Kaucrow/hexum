@@ -1,6 +1,7 @@
 use crate::Config;
 use anyhow::{Result, Context};
 
+#[derive(Clone)]
 pub struct RedisAdapter {
     pub client: redis::Client,
 }

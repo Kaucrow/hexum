@@ -1,17 +1,19 @@
-use hexum::{
-    AppState,
-    get_config,
-    prelude::*,
-    telemetry,
-    infrastructure::{PostgresAdapter, RedisAdapter},
-    presentation::http::{self, routes},
-};
+use std::sync::Arc;
 
 use anyhow::Result;
 use axum::{Router, routing::{get, post, delete}};
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
-use std::sync::Arc;
+
+use hexum::{
+    AppState,
+    get_config,
+    prelude::*,
+    telemetry,
+    application::services::AuthService,
+    infrastructure::{PostgresAdapter, RedisAdapter, PasetoSecurityAdapter},
+    presentation::http::{self, routes},
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -25,16 +27,21 @@ async fn main() -> Result<()> {
 
     let pg_adapter = PostgresAdapter::new(&config).await?;
     let redis_adapter = RedisAdapter::new(&config)?;
+    let paseto_security_adapter = PasetoSecurityAdapter::new(config.session.secret_key.clone());
+
+    let auth_service = AuthService::new(
+        redis_adapter,
+        pg_adapter,
+        paseto_security_adapter,
+    );
 
     let state = AppState {
-        app_config: config.clone(),
-        pg_adapter: Arc::new(pg_adapter),
-        redis_adapter: Arc::new(redis_adapter),
+        auth: Arc::new(auth_service),
     };
 
     let app = Router::new()
         .route("/auth/login", post(routes::auth::login))
-        .route("/auth/refresh", post(routes::auth::refresh))
+        .route("/auth/refresh-session", post(routes::auth::refresh_session))
         .route("/dashboard", get(routes::management::manager_dashboard))
         .route("/nuke", delete(routes::management::delete_database))
         .merge(Scalar::with_url(format!("/{}", config.api.docs_endpoint), http::ApiDocs::openapi()))

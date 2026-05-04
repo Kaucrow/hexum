@@ -1,8 +1,9 @@
 pub use tracing::{debug, info, warn, error};
 pub use serde::{Serialize, Deserialize};
 
-use strum::Display;
 use std::path::PathBuf;
+
+use strum::Display;
 
 #[derive(Display)]
 #[strum(serialize_all = "lowercase")]
