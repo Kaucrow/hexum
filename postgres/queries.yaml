@@ -1,0 +1,24 @@
+user:
+  create: |
+    CREATE TABLE users (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      username VARCHAR(255) NOT NULL UNIQUE,
+      password TEXT NOT NULL UNIQUE,
+      email VARCHAR(255) NOT NULL UNIQUE,
+      token TEXT UNIQUE,
+      roles TEXT[] NOT NULL DEFAULT '{}',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE
+    );
+    CREATE INDEX idx_users_token ON users(token);
+  get_by_id: |
+    SELECT id, username, password, email, roles, is_active
+    FROM users
+    WHERE id = $1
+  get_by_token: |
+    SELECT id, username, password, email, roles, is_active
+    FROM users
+    WHERE token = $1
+  get_by_username: |
+    SELECT id, username, password, email, roles, is_active
+    FROM users
+    WHERE username = $1
