@@ -4,11 +4,12 @@ use axum::extract::FromRef;
 
 use crate::{
     application::{
-        ports::input::AuthUseCase,
+        ports::input::{AuthUseCase, UserUseCase}
     },
 };
 
 #[derive(Clone, FromRef)]
 pub struct AppState {
     pub auth: Arc<dyn AuthUseCase>,
+    pub user: Arc<dyn UserUseCase>,
 }

@@ -1,53 +1,45 @@
+use std::sync::Arc;
+
+use axum::{extract::State, Json};
+use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
+use time::Duration;
+
 use crate::{
     prelude::*,
     AppState,
     application::{
         ports::input::{AuthUseCase, AuthUseCaseError},
     },
-    presentation::http::dtos::auth::{LoginRequest, LoginResponse},
+    presentation::http::{
+        ApiError,
+        dtos::auth::{LoginRequest, LoginResponse, LogoutResponse}
+    },
 };
-use axum::{extract::State, Json, http::StatusCode};
-use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
-use std::sync::Arc;
 
 #[utoipa::path(
     post,
     path = "/auth/login",
     request_body = LoginRequest,
     responses(
-        (status = 200, description = "Login successful", body = LoginResponse),
-        (status = 401, description = "Unauthorized - Invalid credentials"),
+        (status = 200, description = "Login successful", body = LoginResponse, headers(
+            ("Set-Cookie" = String, description = "HTTP-only cookies for access_token and refresh_token")
+        )),
+        (status = 401, description = "Unauthorized - Invalid username or password"),
         (status = 500, description = "Internal Server Error")
     ),
     tags = ["Authentication"]
 )]
 #[axum::debug_handler(state = AppState)]
 pub async fn login(
-    State(auth): State<Arc<dyn AuthUseCase>>,
+    State(auth_service): State<Arc<dyn AuthUseCase>>,
     jar: CookieJar,
     Json(payload): Json<LoginRequest>,
-) -> Result<(CookieJar, Json<LoginResponse>), StatusCode> {
+) -> Result<(CookieJar, Json<LoginResponse>), ApiError> {
     info!("Login attempt for user `{}`", &payload.username);
 
-    let tokens = auth
+    let tokens = auth_service
         .login_user(&payload.username, &payload.password)
-        .await
-        .map_err(|e| {
-            warn!("Login failed for user `{}`: {}", &payload.username, e);
-            match e {
-                AuthUseCaseError::InvalidUsername | AuthUseCaseError::InvalidPassword => {
-                    StatusCode::UNAUTHORIZED
-                }
-                AuthUseCaseError::Internal(e) => {
-                    error!("Login server error: {e}");
-                    StatusCode::INTERNAL_SERVER_ERROR
-                }
-                _ => {
-                    error!("Login unexpected error: {e}.");
-                    StatusCode::INTERNAL_SERVER_ERROR
-                }
-            }
-        })?;
+        .await?;
 
     // Attach cookies
     // Access token goes to the root path ("/")
@@ -64,48 +56,64 @@ pub async fn login(
     post,
     path = "/auth/refresh-session",
     responses(
-        (status = 200, description = "Token refreshed", body = LoginResponse),
-        (status = 401, description = "Unauthorized - Invalid credentials"),
+        (status = 200, description = "Token refreshed successfully", headers(
+            ("Set-Cookie" = String, description = "Updated HTTP-only cookies for access_token and refresh_token")
+        )),
+        (status = 401, description = "Unauthorized - Missing, invalid, or expired refresh token cookie"),
         (status = 500, description = "Internal Server Error")
     ),
     tags = ["Authentication"]
 )]
 #[axum::debug_handler(state = AppState)]
 pub async fn refresh_session(
-    State(auth): State<Arc<dyn AuthUseCase>>,
+    State(auth_service): State<Arc<dyn AuthUseCase>>,
     jar: CookieJar,
-) -> Result<CookieJar, StatusCode> {
+) -> Result<CookieJar, ApiError> {
+    info!("Session refresh requested");
 
     // Get the refresh token from the cookie
     let refresh_token = jar.get("refresh_token")
         .map(|c| c.value().to_string())
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+        .ok_or(ApiError::Unauthorized("The refresh token is missing".to_string()))?;
 
-    let new_tokens = auth
+    let new_tokens = auth_service
         .refresh_session(&refresh_token)
-        .await
-        .map_err(|e| {
-            warn!("Session refresh failed: {e}");
-            match e {
-                AuthUseCaseError::InvalidRefreshToken => {
-                    StatusCode::UNAUTHORIZED
-                }
-                AuthUseCaseError::Internal(e) => {
-                    error!("Session refresh server error: {e}");
-                    StatusCode::INTERNAL_SERVER_ERROR
-                }
-                _ => {
-                    error!("Session refresh unexpected error: {e}.");
-                    StatusCode::INTERNAL_SERVER_ERROR
-                }
-            }
-        })?;
+        .await?;
 
     // Return the updated cookies
     let access_cookie = build_cookie("access_token", new_tokens.access_token, "/");
     let refresh_cookie = build_cookie("refresh_token", new_tokens.refresh_token, "/auth/refresh-session");
 
     Ok(jar.add(access_cookie).add(refresh_cookie))
+}
+
+#[utoipa::path(
+    post,
+    path = "/auth/logout",
+    responses(
+        (status = 200, description = "Logout successful. Clears authentication cookies.", body=LogoutResponse, headers(
+            ("Set-Cookie" = String, description = "Clears access_token and refresh_token cookies")
+        )),
+        (status = 500, description = "Internal Server Error")
+    ),
+    tags = ["Authentication"]
+)]
+#[axum::debug_handler(state = AppState)]
+pub async fn logout(
+    State(auth_service): State<Arc<dyn AuthUseCase>>,
+    jar: CookieJar,
+) -> Result<(CookieJar, Json<LogoutResponse>), ApiError> {
+    info!("Logout requested");
+
+    if let Some(cookie) = jar.get("refresh_token") {
+        let _ = auth_service.logout_user(cookie.value()).await;
+    }
+
+    let access_cookie = build_removal_cookie("access_token", "/");
+    let refresh_cookie = build_removal_cookie("refresh_token", "/auth/refresh-session");
+
+    let response = LogoutResponse { message: "Logout successful".to_string() };
+    Ok((jar.add(access_cookie).add(refresh_cookie), Json(response)))
 }
 
 // Helper function to build cookies
@@ -116,4 +124,43 @@ fn build_cookie<'a>(name: &'a str, value: String, path: &'a str) -> Cookie<'a> {
         .same_site(SameSite::Strict)
         .path(path)
         .build()
+}
+
+// Helper function to build removal cookies
+fn build_removal_cookie<'a>(name: &'a str, path: &'a str) -> Cookie<'a> {
+    Cookie::build((name, ""))
+        .http_only(true)
+        .secure(true)
+        .same_site(SameSite::Strict)
+        .path(path)
+        .max_age(Duration::ZERO)
+        .build()
+}
+
+impl From<AuthUseCaseError> for ApiError {
+    fn from(e: AuthUseCaseError) -> Self {
+        #[allow(unreachable_patterns)]
+        match e {
+            AuthUseCaseError::InvalidUsername => {
+                warn!("Invalid username: {e}");
+                ApiError::Unauthorized("Invalid username.".to_string())
+            }
+            AuthUseCaseError::InvalidPassword => {
+                warn!("Invalid password: {e}");
+                ApiError::Unauthorized("Invalid password.".to_string())
+            }
+            AuthUseCaseError::InvalidRefreshToken => {
+                warn!("Invalid refresh token: {e}");
+                ApiError::Unauthorized("The refresh token is invalid or expired.".to_string())
+            }
+            AuthUseCaseError::Internal(e) => {
+                error!("An internal error occurred: {e}");
+                ApiError::Internal("An internal error occurred.".to_string())
+            }
+            _ => {
+                error!("Unexpected domain error: {e}");
+                ApiError::Internal("An internal error occurred".to_string())
+            }
+        }
+    }
 }

@@ -1,6 +1,8 @@
-use std::fmt;
+use strum::{Display, EnumString};
+use thiserror::Error;
+use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Display, EnumString)]
 pub enum Role {
     Admin,
     Manager,
@@ -9,9 +11,9 @@ pub enum Role {
 
 #[derive(Debug, Clone)]
 pub struct User {
-    pub id: String,
+    pub id: Uuid,
     pub username: String,
-    pub password: String,
+    pub passwd: String,
     pub email: EmailAddress,
     pub roles: Vec<Role>,
     pub is_active: bool,
@@ -35,36 +37,28 @@ impl EmailAddress {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum UserError {
+    #[error("The email address provided is invalid.")]
     InvalidEmail,
+    #[error("Password must be at least 8 characters.")]
     PasswordTooShort,
+    #[error("This user is already deactivated.")]
     UserAlreadyDeactivated,
+    #[error("User lacks the required role.")]
     InsufficientPermissions,
 }
 
-impl fmt::Display for UserError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            UserError::InvalidEmail => write!(f, "The email address provided is invalid."),
-            UserError::PasswordTooShort => write!(f, "Password must be at least 8 characters."),
-            UserError::UserAlreadyDeactivated => write!(f, "This user is already deactivated."),
-            UserError::InsufficientPermissions => write!(f, "User lacks the required role."),
-        }
-    }
-}
-impl std::error::Error for UserError {}
-
 impl User {
-    pub fn new(id: String, username: String, password: String, email: EmailAddress) -> Self {
-        Self {
-            id,
-            username,
-            password,
-            email,
+    pub fn new(username: &String, passwd: &String, email: &String) -> Result<Self, UserError> {
+        Ok(Self {
+            id: uuid::Uuid::new_v4(),
+            username: username.clone(),
+            passwd: passwd.clone(),
+            email: EmailAddress::new(email.to_string())?,
             roles: vec![Role::BasicUser],
             is_active: true,
-        }
+        })
     }
 
     // Check if the user has any of the roles provided

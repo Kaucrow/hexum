@@ -73,10 +73,13 @@ pub struct RedisConfig {
 
 impl RedisConfig {
     pub fn url(&self) -> String {
-        format!(
-            "redis://{}:{}@{}:{}/{}",
-            self.user, self.passwd, self.host, self.port, self.number
-        )
+        if self.passwd.is_empty() {
+            format!("redis://{}:{}/{}", self.host, self.port, self.number)
+        } else {
+            format!("redis://{}:{}@{}:{}/{}",
+                self.user, self.passwd,
+                self.host, self.port, self.number)
+        }
     }
 }
 

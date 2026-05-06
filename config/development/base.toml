@@ -17,6 +17,6 @@ name = "dev"
 [redis]
 host = "localhost"
 port = 6379
-user = "kaucrow"
-passwd = "redis"
+user = ""
+passwd = ""
 number = "0"

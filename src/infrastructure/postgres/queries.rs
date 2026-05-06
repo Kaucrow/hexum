@@ -10,8 +10,9 @@ pub struct Queries {
 pub struct User {
     pub create: String,
     pub get_by_id: String,
-    pub get_by_token: String,
     pub get_by_username: String,
+    pub get_by_email: String,
+    pub insert: String,
 }
 
 pub fn init() -> anyhow::Result<()> {

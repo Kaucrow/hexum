@@ -43,6 +43,8 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
                 StatusCode::UNAUTHORIZED
             })?;
 
+        info!("Verification successful for user `{}`", user.username);
+
         Ok(Self(user))
     }
 }

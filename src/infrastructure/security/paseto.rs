@@ -11,6 +11,7 @@ use pasetors::{
 use chrono::{Utc, Duration};
 use rand::distr::{Alphanumeric, SampleString};
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::application::ports::output::{SecurityPort, SecurityPortError};
 use super::PasetoSecurityAdapter;
@@ -36,9 +37,9 @@ impl PasetoSecurityAdapter {
         Ok(user_id)
     }
 
-    fn do_generate_access_token(&self, user_id: &str) -> Result<String, LocalError> {
+    fn do_generate_access_token(&self, user_id: &Uuid) -> Result<String, LocalError> {
         let mut claims = Claims::new()?;
-        claims.add_additional("user_id", user_id)?;
+        claims.add_additional("user_id", user_id.to_string())?;
 
         // Expiration will be 24 hours from current time
         let expiration = Utc::now()
@@ -77,12 +78,17 @@ impl SecurityPort for PasetoSecurityAdapter {
     }
 
     // Generate a PASETO v4 access token
-    fn generate_access_token(&self, user_id: &str) -> Result<String, SecurityPortError> {
+    fn generate_access_token(&self, user_id: &Uuid) -> Result<String, SecurityPortError> {
         Ok(self.do_generate_access_token(user_id)?)
     }
 
     // Generate a 64-characters long refresh token
     fn generate_refresh_token(&self) -> String {
+        Alphanumeric.sample_string(&mut rand::rng(), 64)
+    }
+
+    // Generate a 64-characters long verification token
+    fn generate_verification_token(&self) -> String {
         Alphanumeric.sample_string(&mut rand::rng(), 64)
     }
 }

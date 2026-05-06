@@ -1,10 +1,8 @@
-CREATE TABLE users (
-    id BIGSERIAL PRIMARY KEY,
+CREATE TABLE "user" (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(255) NOT NULL UNIQUE,
+    passwd TEXT NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
-    token TEXT UNIQUE,
     roles TEXT[] NOT NULL DEFAULT '{}',
     is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
-
-CREATE INDEX idx_users_token ON users(token);

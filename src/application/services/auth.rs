@@ -6,7 +6,11 @@ use crate::{
     domain::user::User,
     application::ports::{
         input::{AuthUseCase, AuthTokens, AuthUseCaseError},
-        output::{UserRepository, SessionPort, SecurityPort},
+        output::{
+            UserRepository,
+            SessionPort, SessionPortError,
+            SecurityPort, SecurityPortError,
+        },
     }
 };
 
@@ -19,7 +23,7 @@ pub struct AuthService {
 
 impl AuthService {
     pub fn new(
-        user_repo:Arc<dyn UserRepository>,
+        user_repo: Arc<dyn UserRepository>,
         session: Arc<dyn SessionPort>,
         security: Arc<dyn SecurityPort>
     ) -> Self {
@@ -33,7 +37,7 @@ impl AuthUseCase for AuthService {
         let user = self.user_repo.get_user_by_username(username).await
             .ok_or(AuthUseCaseError::InvalidUsername)?;
 
-        if !self.security.verify_password(&password, &user.password) {
+        if !self.security.verify_password(&password, &user.passwd) {
             return Err(AuthUseCaseError::InvalidPassword);
         }
 
@@ -42,8 +46,7 @@ impl AuthUseCase for AuthService {
 
         self.session
             .store_session(&refresh_token, &user.id, 7)
-            .await
-            .map_err(|e| AuthUseCaseError::Internal(e.to_string()))?;
+            .await?;
 
         Ok(AuthTokens {
             access_token,
@@ -52,9 +55,7 @@ impl AuthUseCase for AuthService {
     }
 
     async fn verify_user(&self, access_token: &str) -> Result<User, AuthUseCaseError> {
-        let user_id = self.security.verify_access_token(access_token).map_err(|e|
-            AuthUseCaseError::InvalidAccessToken(e.to_string())
-        )?;
+        let user_id = self.security.verify_access_token(access_token)?;
 
         match self.user_repo.get_user_by_id(&user_id).await {
             Some(user) => Ok(user),
@@ -66,8 +67,7 @@ impl AuthUseCase for AuthService {
         // Consume the session
         let user_id = self.session
             .consume_session(refresh_token)
-            .await
-            .map_err(|e| AuthUseCaseError::Internal(e.to_string()))?
+            .await?
             .ok_or(AuthUseCaseError::InvalidRefreshToken)?;
 
         // Fetch user
@@ -76,20 +76,40 @@ impl AuthUseCase for AuthService {
             .ok_or(AuthUseCaseError::UserNotFound)?;
 
         // Generate brand new tokens
-        let access_token = self.security.generate_access_token(&user.id)
-            .map_err(|e| AuthUseCaseError::Internal(e.to_string()))?;
+        let access_token = self.security.generate_access_token(&user.id)?;
         let refresh_token = self.security.generate_refresh_token();
 
         // Store the new session
         self.session
             .store_session(&refresh_token, &user.id, 7)
-            .await
-            .map_err(|e| AuthUseCaseError::Internal(e.to_string()))?;
+            .await?;
 
         Ok(AuthTokens { access_token, refresh_token })
     }
 
     async fn logout_user(&self, refresh_token: &str) -> Result<(), AuthUseCaseError> {
-        todo!();
+       self.session
+            .consume_session(refresh_token)
+            .await?
+            .ok_or(AuthUseCaseError::InvalidRefreshToken)?;
+
+        Ok(())
+    }
+}
+
+impl From<SessionPortError> for AuthUseCaseError {
+    fn from(e: SessionPortError) -> Self {
+        match e {
+            _ => AuthUseCaseError::Internal(e.to_string()),
+        }
+    }
+}
+
+impl From<SecurityPortError> for AuthUseCaseError {
+    fn from(e: SecurityPortError) -> Self {
+        match e {
+            SecurityPortError::TokenVerificationFailed => AuthUseCaseError::InvalidAccessToken(e.to_string()),
+            _ => AuthUseCaseError::Internal(e.to_string()),
+        }
     }
 }

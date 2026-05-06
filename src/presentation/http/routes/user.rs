@@ -1,0 +1,87 @@
+use std::sync::Arc;
+
+use axum::{extract::State, Json};
+
+use crate::{
+    AppState,
+    prelude::*,
+    domain::user::{User, UserError},
+    application::{
+        ports::input::{UserUseCase, UserUseCaseError},
+    },
+    presentation::http::{
+        ApiError,
+        dtos::user::{RegisterRequest, RegisterResponse},
+    }
+};
+
+#[utoipa::path(
+    post,
+    path = "/user/register",
+    request_body = RegisterRequest,
+    responses(
+        (status = 200, description = "Registration successful", body = RegisterResponse),
+        (status = 400, description = "Bad Request - Invalid email format or password too short"),
+        (status = 409, description = "Conflict - The provided username or email is already in use"),
+        (status = 500, description = "Internal Server Error")
+    ),
+    tags = ["User"]
+)]
+#[axum::debug_handler(state = AppState)]
+pub async fn register(
+    State(user_service): State<Arc<dyn UserUseCase>>,
+    Json(payload): Json<RegisterRequest>,
+) -> Result<Json<RegisterResponse>, ApiError> {
+    info!("User registration request with username `{}` & email `{}`", &payload.username, &payload.email);
+
+    let user = User::new(&payload.username, &payload.password, &payload.email)?;
+
+    user_service.register_user(user).await?;
+
+    info!("Registration successful for user with username `{}` & email `{}`", &payload.username, &payload.email);
+
+    let response = RegisterResponse {
+        message: "Registration successful. A verification link has been sent to your email. Please click it to activate your account.".to_string()
+    };
+    Ok(Json(response))
+}
+
+impl From<UserError> for ApiError {
+    fn from(e: UserError) -> Self {
+        #[allow(unreachable_patterns)]
+        match e {
+            UserError::InvalidEmail | UserError::PasswordTooShort => {
+                warn!("Validation error: {e}");
+                ApiError::BadRequest(e.to_string())
+            }
+            _ => {
+                error!("Unexpected domain error: {e}");
+                ApiError::Internal("An internal error occurred".to_string())
+            }
+        }
+    }
+}
+
+impl From<UserUseCaseError> for ApiError {
+    fn from(e: UserUseCaseError) -> Self {
+        #[allow(unreachable_patterns)]
+        match e {
+            UserUseCaseError::UsernameInUse => {
+                warn!("{e}");
+                ApiError::Conflict("The username provided is already in use.".to_string())
+            }
+            UserUseCaseError::EmailInUse => {
+                warn!("{e}");
+                ApiError::Conflict("The email provided is already in use.".to_string())
+            }
+            UserUseCaseError::Internal(e) => {
+                error!("An internal error occurred: {e}");
+                ApiError::Internal("An internal error occurred".to_string())
+            }
+            _ => {
+                error!("Unexpected domain error: {e}");
+                ApiError::Internal("An internal error occurred".to_string())
+            }
+        }
+    }
+}

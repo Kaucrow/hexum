@@ -1,12 +1,56 @@
+use std::str::FromStr;
+
+use async_trait::async_trait;
+use thiserror::Error;
+
 use crate::{
-    application::ports::output::UserRepository,
+    application::ports::output::{UserRepository, UserRepositoryError},
     domain::user::{User, Role, EmailAddress},
 };
 use super::{
     PostgresAdapter, QUERIES,
     dtos::user::UserDbRow,
 };
-use async_trait::async_trait;
+
+impl PostgresAdapter {
+    async fn add_new_user(&self, user: User) -> Result<(), LocalError> {
+        let queries = QUERIES.get().expect("Queries not initialized.");
+
+        let user_by_username = sqlx::query_as::<_, UserDbRow>(&queries.user.get_by_username)
+            .bind(&user.username)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if user_by_username.is_some() {
+            return Err(LocalError::Logic(UserRepositoryError::UsernameInUse));
+        }
+
+        let user_by_email = sqlx::query_as::<_, UserDbRow>(&queries.user.get_by_email)
+            .bind(user.email.as_str())
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if user_by_email.is_some() {
+            return Err(LocalError::Logic(UserRepositoryError::EmailInUse));
+        }
+
+        let roles_strings: Vec<String> = user.roles
+            .iter()
+            .map(|r| r.to_string())
+            .collect();
+
+        sqlx::query(&queries.user.insert)
+            .bind(user.username)
+            .bind(user.passwd)
+            .bind(user.email.as_str())
+            .bind(roles_strings)
+            .bind(user.is_active)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+}
 
 #[async_trait]
 impl UserRepository for PostgresAdapter {
@@ -21,12 +65,7 @@ impl UserRepository for PostgresAdapter {
 
         let parsed_roles: Vec<Role> = record.roles
             .into_iter()
-            .filter_map(|r| match r.as_str() {
-                "Admin" => Some(Role::Admin),
-                "Manager" => Some(Role::Manager),
-                "BasicUser" => Some(Role::BasicUser),
-                _ => None, 
-            })
+            .filter_map(|r| Role::from_str(&r).ok())
             .collect();
 
         let email_vo = EmailAddress::new(record.email).ok()?;
@@ -34,38 +73,7 @@ impl UserRepository for PostgresAdapter {
         Some(User {
             id: record.id,
             username: record.username,
-            password: record.password,
-            email: email_vo,
-            roles: parsed_roles,
-            is_active: record.is_active,
-        })
-    }
-
-    async fn get_user_by_token(&self, token: &str) -> Option<User> {
-        let queries = QUERIES.get().expect("Queries not initialized.");
-
-        let record = sqlx::query_as::<_, UserDbRow>(&queries.user.get_by_token)
-            .bind(token)
-            .fetch_optional(&self.pool)
-            .await
-            .ok()??;
-
-        let parsed_roles: Vec<Role> = record.roles
-            .into_iter()
-            .filter_map(|r| match r.as_str() {
-                "Admin" => Some(Role::Admin),
-                "Manager" => Some(Role::Manager),
-                "BasicUser" => Some(Role::BasicUser),
-                _ => None,
-            })
-            .collect();
-
-        let email_vo = EmailAddress::new(record.email).ok()?;
-
-        Some(User {
-            id: record.id,
-            username: record.username,
-            password: record.password,
+            passwd: record.passwd,
             email: email_vo,
             roles: parsed_roles,
             is_active: record.is_active,
@@ -83,12 +91,7 @@ impl UserRepository for PostgresAdapter {
 
         let parsed_roles: Vec<Role> = record.roles
             .into_iter()
-            .filter_map(|r| match r.as_str() {
-                "Admin" => Some(Role::Admin),
-                "Manager" => Some(Role::Manager),
-                "BasicUser" => Some(Role::BasicUser),
-                _ => None, 
-            })
+            .filter_map(|r| Role::from_str(&r).ok())
             .collect();
 
         let email_vo = EmailAddress::new(record.email).ok()?;
@@ -96,10 +99,31 @@ impl UserRepository for PostgresAdapter {
         Some(User {
             id: record.id,
             username: record.username,
-            password: record.password,
+            passwd: record.passwd,
             email: email_vo,
             roles: parsed_roles,
             is_active: record.is_active,
         })
+    }
+
+    async fn add_new_user(&self, user: User) -> Result<(), UserRepositoryError> {
+        Ok(self.add_new_user(user).await?)
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum LocalError {
+    #[error("{0}")]
+    Logic(UserRepositoryError),
+    #[error(transparent)]
+    SqlxError(#[from] sqlx::Error),
+}
+
+impl From<LocalError> for UserRepositoryError {
+    fn from(e: LocalError) -> Self {
+        match e {
+            LocalError::Logic(e) => e,
+            LocalError::SqlxError(e) => UserRepositoryError::Internal(e.to_string()),
+        }
     }
 }
