@@ -1,17 +1,31 @@
 use crate::prelude::*;
-use strum::Display;
+use strum::{Display, EnumString};
 use local_ip_address::local_ip;
 use rand::distr::{Alphanumeric, SampleString};
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
+    #[serde(default)]
     pub debug: bool,
+    #[serde(default)]
+    pub environment: Environment,
     pub api: ApiConfig,
+    pub frontend: FrontendConfig,
     #[serde(rename = "postgresql")]
     pub postgres: PostgresConfig,
     pub redis: RedisConfig,
     #[serde(default)]
     pub session: SessionConfig,
+    pub smtp: SmtpConfig,
+}
+
+#[derive(Deserialize, Clone, Debug, Display, Default, EnumString)]
+#[strum(serialize_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum Environment {
+    #[default]
+    Development,
+    Production,
 }
 
 #[derive(Deserialize, Clone)]
@@ -28,8 +42,8 @@ pub struct ApiConfig {
 impl ApiConfig {
     pub fn url(&self) -> String {
         match self.protocol {
-            ApiProtocol::Https => format!("https://{}", self.domain),
-            ApiProtocol::Http => format!("http://{}:{}", self.domain, self.port),
+            ApiProtocol::Http => format!("http://{}:{}/", self.domain, self.port),
+            ApiProtocol::Https => format!("https://{}/", self.domain),
         }
     }
 }
@@ -41,6 +55,34 @@ pub enum ApiProtocol {
     #[default]
     Http,
     Https,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct FrontendConfig {
+    pub host: String,
+    pub port: u16,
+    #[serde(default)]
+    pub protocol: FrontendProtocol,
+}
+
+impl FrontendConfig {
+    pub fn url(&self) -> String {
+        match self.protocol {
+            FrontendProtocol::Http => format!("http://{}:{}/", self.host, self.port),
+            FrontendProtocol::Https => format!("https://{}/", self.host),
+            FrontendProtocol::Hexum => format!("hexum://",)
+        }
+    }
+}
+
+#[derive(Deserialize, Clone, Debug, Display, Default)]
+#[strum(serialize_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
+pub enum FrontendProtocol {
+    #[default]
+    Http,
+    Https,
+    Hexum
 }
 
 #[derive(Deserialize, Clone)]
@@ -89,6 +131,14 @@ pub struct SessionConfig {
     pub secret_key: String,
 }
 
+#[derive(Deserialize, Clone)]
+pub struct SmtpConfig {
+    pub host: String,
+    pub port: u16,
+    pub user: String,
+    pub passwd: String,
+}
+
 pub fn get_config() -> Result<Config, config::ConfigError> {
     let base_path = get_base_path();
 
@@ -112,6 +162,11 @@ pub fn get_config() -> Result<Config, config::ConfigError> {
 
     let mut app_config = settings.try_deserialize::<Config>()?;
 
+    app_config.environment = environment
+        .to_lowercase()
+        .parse()
+        .unwrap_or_default();
+
     if environment == "production" {
         app_config.api.protocol = ApiProtocol::Https;
         app_config.api.domain = std::env::var("RAILWAY_PUBLIC_DOMAIN").expect("Failed to get Railway public domain.");
@@ -122,7 +177,9 @@ pub fn get_config() -> Result<Config, config::ConfigError> {
         app_config.api.domain = local_ip.clone();
     }
 
-    app_config.session.secret_key = Alphanumeric.sample_string(&mut rand::rng(), 32);
+    if app_config.session.secret_key.is_empty() {
+        app_config.session.secret_key = Alphanumeric.sample_string(&mut rand::rng(), 32);
+    }
 
     Ok(app_config)
 }

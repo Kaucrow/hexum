@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.102"
 argon2 = "0.5.3"
+askama = "0.16.0"
 async-trait = "0.1.89"
 axum = { version = "0.8.9", features = ["macros"] }
 axum-extra = { version = "0.12.6", features = ["cookie"] }
@@ -32,3 +33,6 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt", "tim
 utoipa = { version = "5.4.0", features = ["chrono"] }
 utoipa-scalar = { version = "0.3.0", features = ["axum"] }
 uuid = { version = "1.23.1", features = ["serde", "v4"] }
+
+[package.metadata.askama]
+path = "templates"

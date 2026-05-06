@@ -37,6 +37,10 @@ impl AuthUseCase for AuthService {
         let user = self.user_repo.get_user_by_username(username).await
             .ok_or(AuthUseCaseError::InvalidUsername)?;
 
+        if !user.is_active {
+            return Err(AuthUseCaseError::UserInactive)
+        }
+
         if !self.security.verify_password(&password, &user.passwd) {
             return Err(AuthUseCaseError::InvalidPassword);
         }
@@ -58,7 +62,13 @@ impl AuthUseCase for AuthService {
         let user_id = self.security.verify_access_token(access_token)?;
 
         match self.user_repo.get_user_by_id(&user_id).await {
-            Some(user) => Ok(user),
+            Some(user) => {
+                if !user.is_active {
+                    return Err(AuthUseCaseError::UserInactive)
+                }
+
+                Ok(user)
+            },
             None => Err(AuthUseCaseError::UserNotFound)
         }
     }
@@ -74,6 +84,10 @@ impl AuthUseCase for AuthService {
         let user = self.user_repo.get_user_by_id(&user_id)
             .await
             .ok_or(AuthUseCaseError::UserNotFound)?;
+
+        if !user.is_active {
+            return Err(AuthUseCaseError::UserInactive)
+        }
 
         // Generate brand new tokens
         let access_token = self.security.generate_access_token(&user.id)?;

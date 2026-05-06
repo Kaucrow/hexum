@@ -1,0 +1,33 @@
+debug = true
+
+[api]
+host = "0.0.0.0"
+port = 8080
+protocol = "http"
+docs_endpoint = "docs"
+
+[frontend]
+host = "localhost"
+port = 8080
+protocol = "http"
+
+[postgresql]
+pool_max_conn = 5
+host = "0.0.0.0"
+port = 5432
+user = "kaucrow"
+passwd = "postgres"
+name = "dev"
+
+[redis]
+host = "localhost"
+port = 6379
+user = ""
+passwd = ""
+number = "0"
+
+[smtp]
+host = "smtp.gmail.com"
+port = 587
+user = ""
+passwd = ""

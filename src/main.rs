@@ -7,6 +7,7 @@ use utoipa_scalar::{Scalar, Servable};
 
 use hexum::{
     AppState,
+    Environment,
     get_config,
     prelude::*,
     telemetry,
@@ -42,7 +43,7 @@ async fn main() -> Result<()> {
     );
 
     let redis_verification_adapter = Arc::new(RedisVerificationAdapter::new(&config).await?);
-    let lettre_email_adapter = Arc::new(LettreEmailAdapter::new()?);
+    let lettre_email_adapter = Arc::new(LettreEmailAdapter::new(&config)?);
 
     let user_service = UserService::new(
         pg_adapter,
@@ -56,20 +57,31 @@ async fn main() -> Result<()> {
         user: Arc::new(user_service),
     };
 
-    let app = Router::new()
+    let mut app = Router::new()
         .route("/user/register", post(routes::user::register))
+        .route("/user/verify", get(routes::user::verify))
         .route("/auth/login", post(routes::auth::login))
-        .route("/auth/refresh-session", post(routes::auth::refresh_session))
-        .route("/dashboard", get(routes::management::manager_dashboard))
-        .route("/nuke", delete(routes::management::delete_database))
+        .route("/auth/refresh-session", post(routes::auth::refresh_session));
+
+    if matches!(config.environment, Environment::Development) {
+        app = app
+            .route("/user/verify-ui", get(routes::user::verify_ui))
+            .route("/dashboard", get(routes::management::manager_dashboard))
+            .route("/nuke", delete(routes::management::delete_database))
+    }
+
+    let app = app
         .merge(Scalar::with_url(format!("/{}", config.api.docs_endpoint), http::ApiDocs::openapi()))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind(
         format!("{}:{}", config.api.host, config.api.port)
     ).await.unwrap();
+
+    info!("App running on {} mode.", config.environment);
     info!("API listening on {}...", config.api.url());
-    info!("View docs at {}/{}...", config.api.url(), config.api.docs_endpoint);
+    info!("View API docs at {}{}...", config.api.url(), config.api.docs_endpoint);
+
     axum::serve(listener, app).await.unwrap();
 
     Ok(())

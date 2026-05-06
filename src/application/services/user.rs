@@ -55,6 +55,11 @@ impl UserUseCase for UserService {
 
         Ok(())
     }
+
+    async fn verify_user_account(&self, token: &str) -> Result<(), UserUseCaseError> {
+        self.verification.consume_verification_token(token).await?;
+        Ok(())
+    }
 }
 
 impl From<UserRepositoryError> for UserUseCaseError {

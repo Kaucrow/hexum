@@ -6,6 +6,7 @@ use crate::domain::user::User;
 #[async_trait]
 pub trait UserUseCase: Send + Sync + 'static {
     async fn register_user(&self, user: User) -> Result<(), UserUseCaseError>;
+    async fn verify_user_account(&self, token: &str) -> Result<(), UserUseCaseError>;
 }
 
 #[derive(Error, Debug)]

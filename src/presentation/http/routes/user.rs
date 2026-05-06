@@ -1,6 +1,11 @@
 use std::sync::Arc;
 
-use axum::{extract::State, Json};
+use axum::{
+    Json,
+    extract::{State, Query},
+    response::{Html, IntoResponse},
+};
+use askama::Template;
 
 use crate::{
     AppState,
@@ -11,7 +16,7 @@ use crate::{
     },
     presentation::http::{
         ApiError,
-        dtos::user::{RegisterRequest, RegisterResponse},
+        dtos::user::{RegisterRequest, RegisterResponse, VerifyQueryParams},
     }
 };
 
@@ -46,6 +51,33 @@ pub async fn register(
     Ok(Json(response))
 }
 
+#[utoipa::path(
+    get,
+    path = "/user/verify",
+    params(VerifyQueryParams),
+    responses(
+        (status = 200, description = "Account verified successfully"),
+        (status = 400, description = "Invalid or expired token"),
+        (status = 500, description = "Internal Server Error")
+    ),
+    tags = ["User"]
+)]
+#[axum::debug_handler(state = AppState)]
+pub async fn verify(
+    State(user_service): State<Arc<dyn UserUseCase>>,
+    Query(queries): Query<VerifyQueryParams>,
+) -> Result<Json<RegisterResponse>, ApiError> {
+    info!("Verifying account with token: {}", &queries.token);
+
+    user_service.verify_user_account(&queries.token).await?;
+
+    info!("Account successfully verified for token: {}", &queries.token);
+
+    Ok(Json(RegisterResponse {
+        message: "Account verification successful. You can now log in.".to_string(),
+    }))
+}
+
 impl From<UserError> for ApiError {
     fn from(e: UserError) -> Self {
         #[allow(unreachable_patterns)]
@@ -60,6 +92,26 @@ impl From<UserError> for ApiError {
             }
         }
     }
+}
+
+#[derive(Template)]
+#[template(path = "verify_ui.html")]
+pub struct VerifyTemplate {
+    token: String,
+}
+
+pub async fn verify_ui(
+    Query(queries): Query<VerifyQueryParams>,
+) -> Result<impl IntoResponse, ApiError> {
+    let template = VerifyTemplate {
+        token: queries.token,
+    };
+
+    let html_content = template
+        .render()
+        .map_err(|e| ApiError::Internal(e.to_string()))?;
+
+    Ok(Html(html_content))
 }
 
 impl From<UserUseCaseError> for ApiError {

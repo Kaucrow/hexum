@@ -53,6 +53,17 @@ impl PostgresAdapter {
         Ok(())
     }
 
+    async fn do_activate_user_by_id(&self, id: &Uuid) -> Result<(), LocalError> {
+        let queries = QUERIES.get().expect("Queries not initialized.");
+
+        sqlx::query(&queries.user.activate_by_id)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
     async fn do_delete_user_by_id(&self, id: &Uuid) -> Result<(), LocalError> {
         let queries = QUERIES.get().expect("Queries not initialized.");
 
@@ -121,6 +132,10 @@ impl UserRepository for PostgresAdapter {
 
     async fn add_new_user(&self, user: User) -> Result<(), UserRepositoryError> {
         Ok(self.do_add_new_user(user).await?)
+    }
+
+    async fn activate_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError> {
+        Ok(self.do_activate_user_by_id(id).await?)
     }
 
     async fn delete_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError> {

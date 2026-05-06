@@ -153,6 +153,10 @@ impl From<AuthUseCaseError> for ApiError {
                 warn!("Invalid refresh token: {e}");
                 ApiError::Unauthorized("The refresh token is invalid or expired.".to_string())
             }
+            AuthUseCaseError::UserInactive => {
+                warn!("User is inactive: {e}");
+                ApiError::Unauthorized("The user is inactive. Make sure that the email address has been verified.".to_string())
+            }
             AuthUseCaseError::Internal(e) => {
                 error!("An internal error occurred: {e}");
                 ApiError::Internal("An internal error occurred.".to_string())

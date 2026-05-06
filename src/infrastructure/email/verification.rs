@@ -10,9 +10,10 @@ use super::LettreEmailAdapter;
 
 impl LettreEmailAdapter {
     async fn do_send_verification_email(&self, to: &EmailAddress, token: &str) -> Result<(), LocalError> {
-        let url = format!("https://hexum.dev/verify?token={}", token);
+        let url = format!("{}user/verify-ui?token={}", self.frontend_url, token);
         let email = Message::builder()
-            .from("noreply@hexum.dev".parse()?)
+            .from("No Reply <noreply@hexum.dev>".parse()?)
+            .reply_to("No Reply <do-not-reply@hexum.dev>".parse()?)
             .to(to.as_str().parse()?)
             .subject("Verify your account")
             .body(format!("Click here to verify: {}", url))?;
