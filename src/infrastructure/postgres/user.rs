@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use async_trait::async_trait;
 use thiserror::Error;
+use uuid::Uuid;
 
 use crate::{
     application::ports::output::{UserRepository, UserRepositoryError},
@@ -13,7 +14,7 @@ use super::{
 };
 
 impl PostgresAdapter {
-    async fn add_new_user(&self, user: User) -> Result<(), LocalError> {
+    async fn do_add_new_user(&self, user: User) -> Result<(), LocalError> {
         let queries = QUERIES.get().expect("Queries not initialized.");
 
         let user_by_username = sqlx::query_as::<_, UserDbRow>(&queries.user.get_by_username)
@@ -40,6 +41,7 @@ impl PostgresAdapter {
             .collect();
 
         sqlx::query(&queries.user.insert)
+            .bind(user.id)
             .bind(user.username)
             .bind(user.passwd)
             .bind(user.email.as_str())
@@ -50,11 +52,22 @@ impl PostgresAdapter {
 
         Ok(())
     }
+
+    async fn do_delete_user_by_id(&self, id: &Uuid) -> Result<(), LocalError> {
+        let queries = QUERIES.get().expect("Queries not initialized.");
+
+        sqlx::query(&queries.user.delete_by_id)
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+       Ok(())
+    }
 }
 
 #[async_trait]
 impl UserRepository for PostgresAdapter {
-    async fn get_user_by_id(&self, id: &str) -> Option<User> {
+    async fn get_user_by_id(&self, id: &Uuid) -> Option<User> {
         let queries = QUERIES.get().expect("Queries not initialized.");
 
         let record = sqlx::query_as::<_, UserDbRow>(&queries.user.get_by_id)
@@ -107,7 +120,11 @@ impl UserRepository for PostgresAdapter {
     }
 
     async fn add_new_user(&self, user: User) -> Result<(), UserRepositoryError> {
-        Ok(self.add_new_user(user).await?)
+        Ok(self.do_add_new_user(user).await?)
+    }
+
+    async fn delete_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError> {
+        Ok(self.do_delete_user_by_id(id).await?)
     }
 }
 
@@ -116,14 +133,14 @@ pub enum LocalError {
     #[error("{0}")]
     Logic(UserRepositoryError),
     #[error(transparent)]
-    SqlxError(#[from] sqlx::Error),
+    Sqlx(#[from] sqlx::Error),
 }
 
 impl From<LocalError> for UserRepositoryError {
     fn from(e: LocalError) -> Self {
         match e {
             LocalError::Logic(e) => e,
-            LocalError::SqlxError(e) => UserRepositoryError::Internal(e.to_string()),
+            LocalError::Sqlx(e) => UserRepositoryError::Internal(e.to_string()),
         }
     }
 }

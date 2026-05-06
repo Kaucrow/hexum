@@ -46,7 +46,12 @@ impl UserUseCase for UserService {
 
         self.verification.store_verification_token(user_id, &verification_token, 1800).await?;
 
-        self.email.send_verification_email(&user_email, &verification_token).await?;
+        let email_result = self.email.send_verification_email(&user_email, &verification_token).await;
+
+        if let Err(e) = email_result {
+            self.user_repo.delete_user_by_id(&user_id).await?;
+            return Err(UserUseCaseError::Internal(e.to_string()))
+        }
 
         Ok(())
     }

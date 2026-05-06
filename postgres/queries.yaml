@@ -1,9 +1,9 @@
 user:
   create: |
     CREATE TABLE "user" (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      id UUID PRIMARY KEY,
       username VARCHAR(255) NOT NULL UNIQUE,
-      passwd TEXT NOT NULL UNIQUE,
+      passwd TEXT NOT NULL,
       email VARCHAR(255) NOT NULL UNIQUE,
       roles TEXT[] NOT NULL DEFAULT '{}',
       is_active BOOLEAN NOT NULL DEFAULT FALSE
@@ -22,6 +22,9 @@ user:
     WHERE email = $1
   insert: |
     INSERT INTO
-      "user" (username, passwd, email, roles, is_active)
+      "user" (id, username, passwd, email, roles, is_active)
     VALUES
-      ($1, $2, $3, $4, $5)
+      ($1, $2, $3, $4, $5, $6)
+  delete_by_id: |
+    DELETE FROM "user"
+    WHERE id = $1

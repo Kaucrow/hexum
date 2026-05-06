@@ -1,10 +1,11 @@
-use crate::Config;
-use super::queries;
 use sqlx::{
     PgPool,
     postgres::PgPoolOptions,
 };
 use anyhow::{Result, Context};
+
+use crate::Config;
+use super::queries;
 
 #[derive(Clone)]
 pub struct PostgresAdapter {

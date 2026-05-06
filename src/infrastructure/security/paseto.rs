@@ -17,7 +17,7 @@ use crate::application::ports::output::{SecurityPort, SecurityPortError};
 use super::PasetoSecurityAdapter;
 
 impl PasetoSecurityAdapter {
-    fn do_verify_access_token(&self, token: &str) -> Result<String, LocalError> {
+    fn do_verify_access_token(&self, token: &str) -> Result<Uuid, LocalError> {
         let sk = SymmetricKey::<V4>::try_from(self.secret_key.as_str())
             .map_err(|_| LocalError::CryptoConfigError)?;
 
@@ -34,7 +34,9 @@ impl PasetoSecurityAdapter {
             .map(|s| s.to_string())
             .ok_or(LocalError::TokenVerificationFailed)?;
 
-        Ok(user_id)
+        let user_id_uuid = Uuid::try_parse(&user_id)?;
+
+        Ok(user_id_uuid)
     }
 
     fn do_generate_access_token(&self, user_id: &Uuid) -> Result<String, LocalError> {
@@ -73,7 +75,7 @@ impl SecurityPort for PasetoSecurityAdapter {
     }
 
     // Verify a PASETO v4 access token & return the user_id
-    fn verify_access_token(&self, token: &str) -> Result<String, SecurityPortError> {
+    fn verify_access_token(&self, token: &str) -> Result<Uuid, SecurityPortError> {
         Ok(self.do_verify_access_token(token)?)
     }
 
@@ -101,6 +103,8 @@ pub enum LocalError {
     CryptoConfigError,
     #[error(transparent)]
     Paseto(#[from] pasetors::errors::Error),
+    #[error(transparent)]
+    Uuid(#[from] uuid::Error)
 }
 
 impl From<LocalError> for SecurityPortError {
@@ -109,6 +113,7 @@ impl From<LocalError> for SecurityPortError {
             LocalError::TokenVerificationFailed => SecurityPortError::TokenVerificationFailed,
             LocalError::CryptoConfigError => SecurityPortError::Internal("Invalid Secret Key provided.".to_string()),
             LocalError::Paseto(e) => SecurityPortError::Internal(e.to_string()),
+            LocalError::Uuid(e) => SecurityPortError::Internal(e.to_string()),
         }
     }
 }

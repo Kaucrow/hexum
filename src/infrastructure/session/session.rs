@@ -17,14 +17,19 @@ impl RedisSessionAdapter {
         Ok(())
     }
 
-    async fn do_consume_session(&self, refresh_token: &str) -> Result<Option<String>, LocalError> {
+    async fn do_consume_session(&self, refresh_token: &str) -> Result<Option<Uuid>, LocalError> {
         // Fetches the user_id and deletes the token
         let key = self.format_key(refresh_token);
         let user_id: Option<String> = self.conn.clone().get_del(key)
             .await
             .ok();
 
-        Ok(user_id)
+        if let Some(user_id) = user_id {
+            let user_id_uuid = Uuid::try_parse(&user_id)?;
+            Ok(Some(user_id_uuid))
+        } else {
+            Ok(None)
+        }
     }
 
     fn format_key(&self, token: &str) -> String {
@@ -38,7 +43,7 @@ impl SessionPort for RedisSessionAdapter {
         Ok(self.do_store_session(refresh_token, user_id, ttl_days).await?)
     }
 
-    async fn consume_session(&self, refresh_token: &str) -> Result<Option<String>, SessionPortError> {
+    async fn consume_session(&self, refresh_token: &str) -> Result<Option<Uuid>, SessionPortError> {
         Ok(self.do_consume_session(refresh_token).await?)
     }
 }
@@ -47,12 +52,15 @@ impl SessionPort for RedisSessionAdapter {
 pub enum LocalError {
     #[error(transparent)]
     Redis(#[from] redis::RedisError),
+    #[error(transparent)]
+    Uuid(#[from] uuid::Error),
 }
 
 impl From<LocalError> for SessionPortError {
     fn from(e: LocalError) -> Self {
         match e {
             LocalError::Redis(e) => SessionPortError::Internal(e.to_string()),
+            LocalError::Uuid(e) => SessionPortError::Internal(e.to_string()),
         }
     }
 }

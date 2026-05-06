@@ -33,6 +33,6 @@ pub enum AuthUseCaseError {
     #[error("The user could not be found.")]
     UserNotFound,
 
-    #[error("{0}")]
+    #[error("AuthUseCase: {0}")]
     Internal(String),
 }

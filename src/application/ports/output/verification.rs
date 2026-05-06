@@ -17,7 +17,7 @@ pub enum VerificationPortError {
     #[error("{0}")]
     VerificationTokenInvalid(String),
 
-    #[error("{0}")]
+    #[error("Verification: {0}")]
     Internal(String),
 }
 
@@ -28,6 +28,6 @@ pub trait EmailPort: Send + Sync + 'static {
 
 #[derive(Error, Debug)]
 pub enum EmailPortError {
-    #[error("{0}")]
+    #[error("Email: {0}")]
     Internal(String)
 }

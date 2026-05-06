@@ -17,7 +17,7 @@ local-ip-address = "0.6.12"
 owo-colors = "4.3.0"
 pasetors = "0.7.8"
 rand = "0.10.1"
-redis = { version = "1.2.1", features = ["tokio-comp"] }
+redis = { version = "1.2.1", features = ["connection-manager", "tokio-comp"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "uuid"] }

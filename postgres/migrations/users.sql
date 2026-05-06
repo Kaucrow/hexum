@@ -1,7 +1,7 @@
 CREATE TABLE "user" (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
-    passwd TEXT NOT NULL UNIQUE,
+    passwd TEXT NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     roles TEXT[] NOT NULL DEFAULT '{}',
     is_active BOOLEAN NOT NULL DEFAULT TRUE

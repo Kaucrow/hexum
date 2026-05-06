@@ -13,6 +13,7 @@ pub struct User {
     pub get_by_username: String,
     pub get_by_email: String,
     pub insert: String,
+    pub delete_by_id: String,
 }
 
 pub fn init() -> anyhow::Result<()> {
