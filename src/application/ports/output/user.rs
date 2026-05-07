@@ -2,12 +2,13 @@ use async_trait::async_trait;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::domain::user::User;
+use crate::domain::user::{User, EmailAddress};
 
 #[async_trait]
 pub trait UserRepository: Send + Sync + 'static {
     async fn get_user_by_id(&self, id: &Uuid) -> Option<User>;
     async fn get_user_by_username(&self, username: &str) -> Option<User>;
+    async fn get_user_by_email(&self, email: &EmailAddress) -> Option<User>;
     async fn add_new_user(&self, user: User) -> Result<(), UserRepositoryError>;
     async fn activate_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError>;
     async fn delete_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError>;

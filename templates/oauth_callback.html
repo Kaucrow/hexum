@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authenticating...</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #09090b; color: #fafafa; }
+    </style>
+</head>
+<body class="flex min-h-screen items-center justify-center p-4">
+    <div class="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-8 shadow-2xl">
+        <div class="flex flex-col space-y-1 text-center">
+            <h1 class="text-2xl font-semibold tracking-tight">Google Login</h1>
+            <p id="description" class="text-xs uppercase tracking-widest text-zinc-500">Processing Request</p>
+        </div>
+
+        <div id="status-container" class="flex flex-col items-center justify-center gap-4">
+            <div id="spinner" class="mt-8 h-8 w-8 animate-spin rounded-full border-4 border-zinc-800 border-t-zinc-400"></div>
+
+            <div id="result-icon" class="mt-4 hidden text-4xl"></div>
+
+            <div class="text-center px-4">
+                <p id="status-text" class="text-sm font-medium text-zinc-400">Verifying your credentials...</p>
+            </div>
+
+            <a id="retry-btn" href="{{login_ui_url}}" class="mt-2 hidden text-xs text-zinc-500 underline hover:text-zinc-300">
+                Back to login
+            </a>
+        </div>
+    </div>
+
+    <script>
+        async function completeAuth() {
+            const statusText = document.getElementById('status-text');
+            const spinner = document.getElementById('spinner');
+            const icon = document.getElementById('result-icon');
+            const desc = document.getElementById('description');
+            const retryBtn = document.getElementById('retry-btn');
+
+            // Extract the 'code' from the URL query string
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+
+            if (!code) {
+                updateUI(false, "No authorization code found.");
+                return;
+            }
+
+            try {
+                // POST the 'code' to the backend
+                const response = await fetch('{{google_login_uri}}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+
+                const data = await response.json();
+
+                setTimeout(() => {
+                    if (response.ok) {
+                        updateUI(true, "Successfully authenticated!");
+                    } else {
+                        updateUI(false, data.message || "Authentication failed.");
+                    }
+                }, 800);
+
+            } catch (err) {
+                updateUI(false, "Could not connect to the server.");
+            }
+        }
+
+        function updateUI(success, message) {
+            const spinner = document.getElementById('spinner');
+            const icon = document.getElementById('result-icon');
+            const statusText = document.getElementById('status-text');
+            const desc = document.getElementById('description');
+            const retryBtn = document.getElementById('retry-btn');
+
+            spinner.classList.add('hidden');
+            icon.classList.remove('hidden');
+
+            if (success) {
+                icon.innerText = "owo";
+                icon.className = "mt-4 text-4xl text-emerald-500";
+                statusText.innerHTML = message;
+                statusText.className = "text-sm font-medium text-emerald-400";
+                desc.innerText = "Access Granted";
+            } else {
+                icon.innerText = "unu";
+                icon.className = "mt-4 text-4xl text-red-500";
+                statusText.innerText = message;
+                statusText.className = "text-sm font-medium text-red-400";
+                desc.innerText = "Authentication Error";
+                retryBtn.classList.remove('hidden');
+            }
+        }
+
+        // Start the process
+        completeAuth();
+    </script>
+</body>
+</html>

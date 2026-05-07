@@ -18,6 +18,7 @@ use hexum::{
         PasetoSecurityAdapter,
         RedisVerificationAdapter,
         LettreEmailAdapter,
+        GoogleAuthAdapter,
     },
     presentation::http::{self, routes},
 };
@@ -34,12 +35,19 @@ async fn main() -> Result<()> {
 
     let pg_adapter = Arc::new(PostgresAdapter::new(&config).await?);
     let redis_session_adapter = Arc::new(RedisSessionAdapter::new(&config).await?);
-    let paseto_security_adapter = Arc::new(PasetoSecurityAdapter::new(config.session.secret_key.clone()));
+    let paseto_security_adapter = Arc::new(PasetoSecurityAdapter::new()?);
+    let google_auth_adapter = Arc::new(
+    GoogleAuthAdapter::new(
+            config.oauth.google.client_id.clone(),
+            config.oauth.google.client_secret.clone(),
+            config.oauth.redirect_url(config.frontend.url())),
+    );
 
     let auth_service = AuthService::new(
         pg_adapter.clone(),
         redis_session_adapter.clone(),
         paseto_security_adapter.clone(),
+        google_auth_adapter,
     );
 
     let redis_verification_adapter = Arc::new(RedisVerificationAdapter::new(&config).await?);
@@ -53,6 +61,7 @@ async fn main() -> Result<()> {
     );
 
     let state = AppState {
+        config: config.clone(),
         auth: Arc::new(auth_service),
         user: Arc::new(user_service),
     };
@@ -60,12 +69,15 @@ async fn main() -> Result<()> {
     let mut app = Router::new()
         .route("/user/register", post(routes::user::register))
         .route("/user/verify", get(routes::user::verify))
-        .route("/auth/login", post(routes::auth::login))
+        .route("/auth/creds/login", post(routes::auth::creds::login))
+        .route("/auth/oauth/google/login", post(routes::auth::oauth::google_login))
         .route("/auth/refresh-session", post(routes::auth::refresh_session));
 
     if matches!(config.environment, Environment::Development) {
         app = app
             .route("/user/verify-ui", get(routes::user::verify_ui))
+            .route("/auth/oauth/login-ui", get(routes::auth::oauth::oauth_login_ui))
+            .route("/auth/oauth/callback-ui", get(routes::auth::oauth::oauth_callback_ui))
             .route("/dashboard", get(routes::management::manager_dashboard))
             .route("/nuke", delete(routes::management::delete_database))
     }

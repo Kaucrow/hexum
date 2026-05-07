@@ -130,6 +130,32 @@ impl UserRepository for PostgresAdapter {
         })
     }
 
+    async fn get_user_by_email(&self, email: &EmailAddress) -> Option<User> {
+        let queries = QUERIES.get().expect("Queries not initialized.");
+
+        let record = sqlx::query_as::<_, UserDbRow>(&queries.user.get_by_email)
+            .bind(email.as_str())
+            .fetch_optional(&self.pool)
+            .await
+            .ok()??;
+
+        let parsed_roles: Vec<Role> = record.roles
+            .into_iter()
+            .filter_map(|r| Role::from_str(&r).ok())
+            .collect();
+
+        let email_vo = EmailAddress::new(record.email).ok()?;
+
+        Some(User {
+            id: record.id,
+            username: record.username,
+            passwd: record.passwd,
+            email: email_vo,
+            roles: parsed_roles,
+            is_active: record.is_active,
+        })
+    }
+
     async fn add_new_user(&self, user: User) -> Result<(), UserRepositoryError> {
         Ok(self.do_add_new_user(user).await?)
     }

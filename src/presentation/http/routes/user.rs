@@ -23,6 +23,7 @@ use crate::{
 #[utoipa::path(
     post,
     path = "/user/register",
+    description = "Registers a new user with username, password & email",
     request_body = RegisterRequest,
     responses(
         (status = 200, description = "Registration successful", body = RegisterResponse),
@@ -54,6 +55,7 @@ pub async fn register(
 #[utoipa::path(
     get,
     path = "/user/verify",
+    description = "Validates the email verification token & activates the user account.",
     params(VerifyQueryParams),
     responses(
         (status = 200, description = "Account verified successfully"),
@@ -95,7 +97,7 @@ impl From<UserError> for ApiError {
 }
 
 #[derive(Template)]
-#[template(path = "verify_ui.html")]
+#[template(path = "verify.html")]
 pub struct VerifyTemplate {
     token: String,
 }

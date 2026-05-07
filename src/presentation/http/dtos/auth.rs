@@ -21,3 +21,11 @@ pub struct LogoutResponse {
     #[schema(example = "Logout successful")]
     pub message: String,
 }
+
+#[derive(Deserialize, ToSchema)]
+pub struct GoogleLoginRequest {
+    #[schema(
+        example = "4/0AfgeXvvV...",
+    )]
+    pub code: String,
+}

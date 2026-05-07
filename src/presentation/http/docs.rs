@@ -14,9 +14,12 @@ use super::{routes, dtos};
 
         // User routes
         routes::user::register,
+        routes::user::verify,
 
         // Auth routes
-        routes::auth::login,
+        routes::auth::creds::login,
+        routes::auth::oauth::oauth_login_ui,
+        routes::auth::oauth::google_login,
         routes::auth::refresh_session,
         routes::auth::logout,
     ),

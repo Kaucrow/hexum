@@ -13,7 +13,7 @@ protocol = "http"
 
 [postgresql]
 pool_max_conn = 5
-host = "0.0.0.0"
+host = "localhost"
 port = 5432
 user = "kaucrow"
 passwd = "postgres"

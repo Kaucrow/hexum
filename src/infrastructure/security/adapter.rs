@@ -1,10 +1,18 @@
+use pasetors::{
+    version4::V4,
+    keys::{SymmetricKey, Generate},
+};
+use anyhow::Result;
+
 #[derive(Clone)]
 pub struct PasetoSecurityAdapter {
-    pub secret_key: String,
+    pub sk: SymmetricKey<V4>,
 }
 
 impl PasetoSecurityAdapter {
-    pub fn new(secret_key: String) -> Self {
-        Self { secret_key }
+    pub fn new() -> Result<Self> {
+        let sk = SymmetricKey::<V4>::generate()?;
+
+        Ok(Self { sk })
     }
 }

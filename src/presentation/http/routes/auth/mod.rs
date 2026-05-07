@@ -1,60 +1,33 @@
+pub mod creds;
+pub mod oauth;
+
 use std::sync::Arc;
 
-use axum::{extract::State, Json};
+use axum::{
+    Json,
+    extract::State,
+};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use time::Duration;
 
 use crate::{
-    prelude::*,
+    Config,
     AppState,
+    ApiProtocol,
+    prelude::*,
     application::{
         ports::input::{AuthUseCase, AuthUseCaseError},
     },
     presentation::http::{
         ApiError,
-        dtos::auth::{LoginRequest, LoginResponse, LogoutResponse}
+        dtos::auth::LogoutResponse,
     },
 };
 
 #[utoipa::path(
     post,
-    path = "/auth/login",
-    request_body = LoginRequest,
-    responses(
-        (status = 200, description = "Login successful", body = LoginResponse, headers(
-            ("Set-Cookie" = String, description = "HTTP-only cookies for access_token and refresh_token")
-        )),
-        (status = 401, description = "Unauthorized - Invalid username or password"),
-        (status = 500, description = "Internal Server Error")
-    ),
-    tags = ["Authentication"]
-)]
-#[axum::debug_handler(state = AppState)]
-pub async fn login(
-    State(auth_service): State<Arc<dyn AuthUseCase>>,
-    jar: CookieJar,
-    Json(payload): Json<LoginRequest>,
-) -> Result<(CookieJar, Json<LoginResponse>), ApiError> {
-    info!("Login attempt for user `{}`", &payload.username);
-
-    let tokens = auth_service
-        .login_user(&payload.username, &payload.password)
-        .await?;
-
-    // Attach cookies
-    // Access token goes to the root path ("/")
-    let access_cookie = build_cookie("access_token", tokens.access_token, "/");
-    let refresh_cookie = build_cookie("refresh_token", tokens.refresh_token, "/auth/refresh-session");
-
-    info!("Login successful for user `{}`", &payload.username);
-
-    let response = LoginResponse { message: "Success".to_string() };
-    Ok((jar.add(access_cookie).add(refresh_cookie), Json(response)))
-}
-
-#[utoipa::path(
-    post,
     path = "/auth/refresh-session",
+    description = "Generates a new access token using the refresh token.",
     responses(
         (status = 200, description = "Token refreshed successfully", headers(
             ("Set-Cookie" = String, description = "Updated HTTP-only cookies for access_token and refresh_token")
@@ -66,6 +39,7 @@ pub async fn login(
 )]
 #[axum::debug_handler(state = AppState)]
 pub async fn refresh_session(
+    State(config): State<Arc<Config>>,
     State(auth_service): State<Arc<dyn AuthUseCase>>,
     jar: CookieJar,
 ) -> Result<CookieJar, ApiError> {
@@ -81,8 +55,8 @@ pub async fn refresh_session(
         .await?;
 
     // Return the updated cookies
-    let access_cookie = build_cookie("access_token", new_tokens.access_token, "/");
-    let refresh_cookie = build_cookie("refresh_token", new_tokens.refresh_token, "/auth/refresh-session");
+    let access_cookie = build_cookie("access_token", new_tokens.access_token, "/", &config.api.protocol);
+    let refresh_cookie = build_cookie("refresh_token", new_tokens.refresh_token, "/auth/refresh-session", &config.api.protocol);
 
     Ok(jar.add(access_cookie).add(refresh_cookie))
 }
@@ -90,6 +64,7 @@ pub async fn refresh_session(
 #[utoipa::path(
     post,
     path = "/auth/logout",
+    description = "Logs out a user.",
     responses(
         (status = 200, description = "Logout successful. Clears authentication cookies.", body=LogoutResponse, headers(
             ("Set-Cookie" = String, description = "Clears access_token and refresh_token cookies")
@@ -100,6 +75,7 @@ pub async fn refresh_session(
 )]
 #[axum::debug_handler(state = AppState)]
 pub async fn logout(
+    State(config): State<Arc<Config>>,
     State(auth_service): State<Arc<dyn AuthUseCase>>,
     jar: CookieJar,
 ) -> Result<(CookieJar, Json<LogoutResponse>), ApiError> {
@@ -109,32 +85,44 @@ pub async fn logout(
         let _ = auth_service.logout_user(cookie.value()).await;
     }
 
-    let access_cookie = build_removal_cookie("access_token", "/");
-    let refresh_cookie = build_removal_cookie("refresh_token", "/auth/refresh-session");
+    let access_cookie = build_removal_cookie("access_token", "/", &config.api.protocol);
+    let refresh_cookie = build_removal_cookie("refresh_token", "/auth/refresh-session", &config.api.protocol);
 
     let response = LogoutResponse { message: "Logout successful".to_string() };
     Ok((jar.add(access_cookie).add(refresh_cookie), Json(response)))
 }
 
 // Helper function to build cookies
-fn build_cookie<'a>(name: &'a str, value: String, path: &'a str) -> Cookie<'a> {
-    Cookie::build((name, value))
+fn build_cookie<'a>(name: &'a str, value: String, path: &'a str, protocol: &ApiProtocol) -> Cookie<'a> {
+    let mut cookie = Cookie::build((name, value))
         .http_only(true)
-        .secure(true)
         .same_site(SameSite::Strict)
-        .path(path)
-        .build()
+        .path(path);
+
+    if matches!(protocol, ApiProtocol::Http) {
+        cookie = cookie.secure(false);
+    } else {
+        cookie = cookie.secure(true);
+    }
+
+    cookie.build()
 }
 
 // Helper function to build removal cookies
-fn build_removal_cookie<'a>(name: &'a str, path: &'a str) -> Cookie<'a> {
-    Cookie::build((name, ""))
+fn build_removal_cookie<'a>(name: &'a str, path: &'a str, protocol: &ApiProtocol) -> Cookie<'a> {
+    let mut cookie = Cookie::build((name, ""))
         .http_only(true)
-        .secure(true)
         .same_site(SameSite::Strict)
         .path(path)
-        .max_age(Duration::ZERO)
-        .build()
+        .max_age(Duration::ZERO);
+
+    if matches!(protocol, ApiProtocol::Http) {
+        cookie = cookie.secure(false);
+    } else {
+        cookie = cookie.secure(true);
+    }
+
+    cookie.build()
 }
 
 impl From<AuthUseCaseError> for ApiError {

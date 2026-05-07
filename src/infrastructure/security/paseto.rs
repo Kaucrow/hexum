@@ -3,7 +3,6 @@ use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use pasetors::{
     Local,
     claims::{Claims, ClaimsValidationRules},
-    keys::SymmetricKey,
     version4::V4,
     token::UntrustedToken,
     local,
@@ -18,13 +17,10 @@ use super::PasetoSecurityAdapter;
 
 impl PasetoSecurityAdapter {
     fn do_verify_access_token(&self, token: &str) -> Result<Uuid, LocalError> {
-        let sk = SymmetricKey::<V4>::try_from(self.secret_key.as_str())
-            .map_err(|_| LocalError::CryptoConfigError)?;
-
         let validation_rules = ClaimsValidationRules::new();
         let untrusted_token = UntrustedToken::<Local, V4>::try_from(token)
             .map_err(|_| LocalError::TokenVerificationFailed)?;
-        let trusted_token = local::decrypt(&sk, &untrusted_token, &validation_rules, None, None)
+        let trusted_token = local::decrypt(&self.sk, &untrusted_token, &validation_rules, None, None)
             .map_err(|_| LocalError::TokenVerificationFailed)?;
 
         let user_id: String = trusted_token
@@ -51,10 +47,8 @@ impl PasetoSecurityAdapter {
         // Format the expiration to RFC3339 and set it
         claims.expiration(&expiration.to_rfc3339())?;
 
-        // Generate the key and encrypt the claims
-        let sk = SymmetricKey::<V4>::try_from(self.secret_key.as_str())
-            .map_err(|_| LocalError::CryptoConfigError)?;
-        let token = local::encrypt(&sk, &claims, None, None)?;
+        // Encrypt the claims
+        let token = local::encrypt(&self.sk, &claims, None, None)?;
 
         Ok(token)
     }
@@ -99,8 +93,6 @@ impl SecurityPort for PasetoSecurityAdapter {
 pub enum LocalError {
     #[error("")]
     TokenVerificationFailed,
-    #[error("")]
-    CryptoConfigError,
     #[error(transparent)]
     Paseto(#[from] pasetors::errors::Error),
     #[error(transparent)]
@@ -111,7 +103,6 @@ impl From<LocalError> for SecurityPortError {
     fn from(e: LocalError) -> Self {
         match e {
             LocalError::TokenVerificationFailed => SecurityPortError::TokenVerificationFailed,
-            LocalError::CryptoConfigError => SecurityPortError::Internal("Invalid Secret Key provided.".to_string()),
             LocalError::Paseto(e) => SecurityPortError::Internal(e.to_string()),
             LocalError::Uuid(e) => SecurityPortError::Internal(e.to_string()),
         }

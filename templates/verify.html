@@ -51,32 +51,21 @@
 
                     if (response.ok) {
                         icon.innerText = "owo";
-
+                        icon.className = "mt-4 text-4xl text-emerald-500";
                         statusText.innerHTML = "Your account has been verified successfully.<br />You can now log in.";
-
                         statusText.className = "text-sm font-medium text-emerald-400";
                         desc.innerText = "Verification Complete";
                     } else {
-                        showError(data.message || "Verification failed");
+                        let msg = data.message || "Verification failed";
+                        icon.innerText = "unu";
+                        text.innerText = msg;
+                        text.className = "text-sm font-medium text-red-400";
+                        desc.innerText = "Verification Error";
                     }
                 }, 800);
             } catch (err) {
                 showError("Unable to connect to the server.");
             }
-        }
-
-        function showError(msg) {
-            document.getElementById('spinner').classList.add('hidden');
-            const icon = document.getElementById('result-icon');
-            const text = document.getElementById('status-text');
-            const desc = document.getElementById('description');
-
-            icon.innerText = "unu";
-            icon.classList.remove('hidden');
-
-            text.innerText = msg;
-            text.className = "text-sm font-medium text-red-400";
-            desc.innerText = "Verification Error";
         }
 
         // Start the verification

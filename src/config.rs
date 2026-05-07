@@ -1,7 +1,6 @@
 use crate::prelude::*;
 use strum::{Display, EnumString};
 use local_ip_address::local_ip;
-use rand::distr::{Alphanumeric, SampleString};
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
@@ -17,6 +16,7 @@ pub struct Config {
     #[serde(default)]
     pub session: SessionConfig,
     pub smtp: SmtpConfig,
+    pub oauth: OAuthConfig,
 }
 
 #[derive(Deserialize, Clone, Debug, Display, Default, EnumString)]
@@ -31,11 +31,10 @@ pub enum Environment {
 #[derive(Deserialize, Clone)]
 pub struct ApiConfig {
     pub host: String,
+    pub domain: String,
     pub port: u16,
     #[serde(default)]
     pub protocol: ApiProtocol,
-    #[serde(default)]
-    pub domain: String,
     pub docs_endpoint: String,
 }
 
@@ -59,7 +58,7 @@ pub enum ApiProtocol {
 
 #[derive(Deserialize, Clone)]
 pub struct FrontendConfig {
-    pub host: String,
+    pub domain: String,
     pub port: u16,
     #[serde(default)]
     pub protocol: FrontendProtocol,
@@ -68,8 +67,8 @@ pub struct FrontendConfig {
 impl FrontendConfig {
     pub fn url(&self) -> String {
         match self.protocol {
-            FrontendProtocol::Http => format!("http://{}:{}/", self.host, self.port),
-            FrontendProtocol::Https => format!("https://{}/", self.host),
+            FrontendProtocol::Http => format!("http://{}:{}/", self.domain, self.port),
+            FrontendProtocol::Https => format!("https://{}/", self.domain),
             FrontendProtocol::Hexum => format!("hexum://",)
         }
     }
@@ -126,10 +125,7 @@ impl RedisConfig {
 }
 
 #[derive(Deserialize, Clone, Default)]
-pub struct SessionConfig {
-    #[serde(default)]
-    pub secret_key: String,
-}
+pub struct SessionConfig {}
 
 #[derive(Deserialize, Clone)]
 pub struct SmtpConfig {
@@ -137,6 +133,30 @@ pub struct SmtpConfig {
     pub port: u16,
     pub user: String,
     pub passwd: String,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct OAuthConfig {
+    pub login_ui_endpoint: String,
+    pub callback_endpoint: String,
+    pub google: GoogleConfig,
+}
+
+impl OAuthConfig {
+    pub fn login_ui_url(&self, frontend_url: String) -> String {
+        format!("{}{}", frontend_url, self.login_ui_endpoint)
+    }
+
+    pub fn redirect_url(&self, frontend_url: String) -> String {
+        format!("{}{}", frontend_url, self.callback_endpoint)
+    }
+}
+
+#[derive(Deserialize, Clone)]
+pub struct GoogleConfig {
+    pub login_endpoint: String,
+    pub client_id: String,
+    pub client_secret: String,
 }
 
 pub fn get_config() -> Result<Config, config::ConfigError> {
@@ -175,10 +195,6 @@ pub fn get_config() -> Result<Config, config::ConfigError> {
 
         app_config.api.protocol = ApiProtocol::Http;
         app_config.api.domain = local_ip.clone();
-    }
-
-    if app_config.session.secret_key.is_empty() {
-        app_config.session.secret_key = Alphanumeric.sample_string(&mut rand::rng(), 32);
     }
 
     Ok(app_config)

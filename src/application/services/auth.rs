@@ -3,13 +3,14 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::{
-    domain::user::User,
+    domain::user::{User, EmailAddress},
     application::ports::{
         input::{AuthUseCase, AuthTokens, AuthUseCaseError},
         output::{
             UserRepository,
             SessionPort, SessionPortError,
             SecurityPort, SecurityPortError,
+            GoogleAuthPort, GoogleAuthPortError,
         },
     }
 };
@@ -19,15 +20,17 @@ pub struct AuthService {
     user_repo: Arc<dyn UserRepository>,
     session: Arc<dyn SessionPort>,
     security: Arc<dyn SecurityPort>,
+    google: Arc<dyn GoogleAuthPort>,
 }
 
 impl AuthService {
     pub fn new(
         user_repo: Arc<dyn UserRepository>,
         session: Arc<dyn SessionPort>,
-        security: Arc<dyn SecurityPort>
+        security: Arc<dyn SecurityPort>,
+        google: Arc<dyn GoogleAuthPort>,
     ) -> Self {
-        Self { user_repo, session, security }
+        Self { user_repo, session, security, google }
     }
 }
 
@@ -46,6 +49,38 @@ impl AuthUseCase for AuthService {
         }
 
         let access_token = self.security.generate_access_token(&user.id).unwrap();
+        let refresh_token = self.security.generate_refresh_token();
+
+        self.session
+            .store_session(&refresh_token, &user.id, 7)
+            .await?;
+
+        Ok(AuthTokens {
+            access_token,
+            refresh_token,
+        })
+    }
+
+    async fn login_user_via_google(&self, code: &str) -> Result<AuthTokens, AuthUseCaseError> {
+        let google_user = self.google
+            .get_user_info_by_code(code)
+            .await
+            .map_err(|e| AuthUseCaseError::Internal(format!("Google Auth failed: {:?}", e)))?;
+
+        let google_user_email = EmailAddress::new(google_user.email)
+            .map_err(|e| AuthUseCaseError::Internal(format!("Tried to parse an invalid email: {:?}", e)))?;
+
+        let user = self.user_repo
+            .get_user_by_email(&google_user_email)
+            .await
+            .ok_or(AuthUseCaseError::UserNotFound)?;
+
+        if !user.is_active {
+            return Err(AuthUseCaseError::UserInactive);
+        }
+
+        let access_token = self.security.generate_access_token(&user.id)?;
+
         let refresh_token = self.security.generate_refresh_token();
 
         self.session
@@ -123,6 +158,15 @@ impl From<SecurityPortError> for AuthUseCaseError {
     fn from(e: SecurityPortError) -> Self {
         match e {
             SecurityPortError::TokenVerificationFailed => AuthUseCaseError::InvalidAccessToken(e.to_string()),
+            _ => AuthUseCaseError::Internal(e.to_string()),
+        }
+    }
+}
+
+impl From<GoogleAuthPortError> for AuthUseCaseError {
+    fn from(e: GoogleAuthPortError) -> Self {
+        match e {
+            GoogleAuthPortError::InvalidCode => AuthUseCaseError::InvalidOAuthCode(e.to_string()),
             _ => AuthUseCaseError::Internal(e.to_string()),
         }
     }
