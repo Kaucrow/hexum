@@ -18,7 +18,7 @@ use hexum::{
         PasetoSecurityAdapter,
         RedisVerificationAdapter,
         LettreEmailAdapter,
-        GoogleAuthAdapter,
+        OAuthAdapter,
     },
     presentation::http::{self, routes},
 };
@@ -36,18 +36,13 @@ async fn main() -> Result<()> {
     let pg_adapter = Arc::new(PostgresAdapter::new(&config).await?);
     let redis_session_adapter = Arc::new(RedisSessionAdapter::new(&config).await?);
     let paseto_security_adapter = Arc::new(PasetoSecurityAdapter::new()?);
-    let google_auth_adapter = Arc::new(
-    GoogleAuthAdapter::new(
-            config.oauth.google.client_id.clone(),
-            config.oauth.google.client_secret.clone(),
-            config.oauth.redirect_url(config.frontend.url())),
-    );
+    let oauth_adapter = Arc::new(OAuthAdapter::new(&config));
 
     let auth_service = AuthService::new(
         pg_adapter.clone(),
         redis_session_adapter.clone(),
         paseto_security_adapter.clone(),
-        google_auth_adapter,
+        oauth_adapter,
     );
 
     let redis_verification_adapter = Arc::new(RedisVerificationAdapter::new(&config).await?);
@@ -71,6 +66,7 @@ async fn main() -> Result<()> {
         .route("/user/verify", get(routes::user::verify))
         .route("/auth/creds/login", post(routes::auth::creds::login))
         .route("/auth/oauth/google/login", post(routes::auth::oauth::google_login))
+        .route("/auth/oauth/github/login", post(routes::auth::oauth::github_login))
         .route("/auth/refresh-session", post(routes::auth::refresh_session));
 
     if matches!(config.environment, Environment::Development) {
@@ -90,7 +86,7 @@ async fn main() -> Result<()> {
         format!("{}:{}", config.api.host, config.api.port)
     ).await.unwrap();
 
-    info!("App running on {} mode.", config.environment);
+    info!("App running on {} mode", config.environment);
     info!("API listening on {}...", config.api.url());
     info!("View API docs at {}{}...", config.api.url(), config.api.docs_endpoint);
 

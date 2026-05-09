@@ -2,16 +2,36 @@ use async_trait::async_trait;
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::domain::user::{User, EmailAddress};
+use crate::domain::user::{
+    User,
+    EmailAddress,
+    UserAuthenticator,
+    AuthProvider
+};
 
 #[async_trait]
 pub trait UserRepository: Send + Sync + 'static {
+    // --- Getters ---
     async fn get_user_by_id(&self, id: &Uuid) -> Option<User>;
     async fn get_user_by_username(&self, username: &str) -> Option<User>;
     async fn get_user_by_email(&self, email: &EmailAddress) -> Option<User>;
+
+    // --- User modification ---
     async fn add_new_user(&self, user: User) -> Result<(), UserRepositoryError>;
     async fn activate_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError>;
     async fn delete_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError>;
+
+    // --- Authentication ---
+    async fn get_authenticator(
+        &self,
+        user_id: &Uuid,
+        auth_provider: AuthProvider,
+    ) -> Result<Option<UserAuthenticator>, UserRepositoryError>;
+
+    async fn add_authenticator(
+        &self,
+        user_authenticator: UserAuthenticator
+    ) -> Result<(), UserRepositoryError>;
 }
 
 #[derive(Error, Debug)]

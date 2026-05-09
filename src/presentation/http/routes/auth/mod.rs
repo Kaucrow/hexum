@@ -129,10 +129,6 @@ impl From<AuthUseCaseError> for ApiError {
     fn from(e: AuthUseCaseError) -> Self {
         #[allow(unreachable_patterns)]
         match e {
-            AuthUseCaseError::InvalidUsername => {
-                warn!("Invalid username: {e}");
-                ApiError::Unauthorized("Invalid username.".to_string())
-            }
             AuthUseCaseError::InvalidPassword => {
                 warn!("Invalid password: {e}");
                 ApiError::Unauthorized("Invalid password.".to_string())

@@ -12,19 +12,16 @@
 <body class="flex min-h-screen items-center justify-center p-4">
     <div class="w-full max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-8 shadow-2xl">
         <div class="flex flex-col space-y-1 text-center">
-            <h1 class="text-2xl font-semibold tracking-tight">Google Login</h1>
+            <h1 id="provider-title" class="text-2xl font-semibold tracking-tight">OAuth Login</h1>
             <p id="description" class="text-xs uppercase tracking-widest text-zinc-500">Processing Request</p>
         </div>
 
         <div id="status-container" class="flex flex-col items-center justify-center gap-4">
             <div id="spinner" class="mt-8 h-8 w-8 animate-spin rounded-full border-4 border-zinc-800 border-t-zinc-400"></div>
-
             <div id="result-icon" class="mt-4 hidden text-4xl"></div>
-
             <div class="text-center px-4">
                 <p id="status-text" class="text-sm font-medium text-zinc-400">Verifying your credentials...</p>
             </div>
-
             <a id="retry-btn" href="{{login_ui_url}}" class="mt-2 hidden text-xs text-zinc-500 underline hover:text-zinc-300">
                 Back to login
             </a>
@@ -33,15 +30,20 @@
 
     <script>
         async function completeAuth() {
-            const statusText = document.getElementById('status-text');
-            const spinner = document.getElementById('spinner');
-            const icon = document.getElementById('result-icon');
-            const desc = document.getElementById('description');
-            const retryBtn = document.getElementById('retry-btn');
-
-            // Extract the 'code' from the URL query string
             const urlParams = new URLSearchParams(window.location.search);
             const code = urlParams.get('code');
+            const state = urlParams.get('state');
+
+            const title = document.getElementById('provider-title');
+
+            // Determine the provider and endpoint
+            let endpoint = '{{google_login_uri}}';
+            if (state === 'github_login') {
+                endpoint = '{{github_login_uri}}';
+                title.innerText = "GitHub Login";
+            } else {
+                title.innerText = "Google Login";
+            }
 
             if (!code) {
                 updateUI(false, "No authorization code found.");
@@ -49,8 +51,8 @@
             }
 
             try {
-                // POST the 'code' to the backend
-                const response = await fetch('{{google_login_uri}}', {
+                // POST the 'code' to the dynamically selected endpoint
+                const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code: code })
@@ -97,7 +99,6 @@
             }
         }
 
-        // Start the process
         completeAuth();
     </script>
 </body>

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::{
-    domain::user::User,
+    domain::user::{User, UserAuthenticator},
     application::ports::{
         input::{UserUseCase, UserUseCaseError},
         output::{
@@ -36,15 +36,17 @@ impl UserService {
 
 #[async_trait]
 impl UserUseCase for UserService {
-    async fn register_user(&self, user: User) -> Result<(), UserUseCaseError> {
+    async fn register_user(&self, user: User, passwd: &str) -> Result<(), UserUseCaseError> {
         let user_id = user.id.clone();
         let user_email = user.email.clone();
+        let auth = UserAuthenticator::new_local(user_id, passwd.to_string());
 
         self.user_repo.add_new_user(user).await?;
+        self.user_repo.add_authenticator(auth).await?;
 
         let verification_token = self.security.generate_verification_token();
 
-        self.verification.store_verification_token(user_id, &verification_token, 1800).await?;
+        self.verification.store_verification_token(&user_id, &verification_token, 1800).await?;
 
         let email_result = self.email.send_verification_email(&user_email, &verification_token).await;
 

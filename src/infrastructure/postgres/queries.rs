@@ -4,17 +4,26 @@ use super::QUERIES;
 #[derive(Deserialize, Debug)]
 pub struct Queries {
     pub user: User,
+    pub user_authenticator: UserAuthenticator,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct User {
-    pub create: String,
     pub get_by_id: String,
     pub get_by_username: String,
     pub get_by_email: String,
+    pub get_local_auth_by_username: String,
+    pub get_local_auth_by_email: String,
+    pub get_by_oauth: String,
     pub insert: String,
     pub activate_by_id: String,
     pub delete_by_id: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UserAuthenticator {
+    pub get_by_user_id_and_provider: String,
+    pub insert: String,
 }
 
 pub fn init() -> anyhow::Result<()> {

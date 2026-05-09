@@ -23,7 +23,7 @@ pub struct LogoutResponse {
 }
 
 #[derive(Deserialize, ToSchema)]
-pub struct GoogleLoginRequest {
+pub struct OAuthLoginRequest {
     #[schema(
         example = "4/0AfgeXvvV...",
     )]

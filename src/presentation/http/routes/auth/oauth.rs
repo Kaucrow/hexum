@@ -16,7 +16,7 @@ use crate::{
     },
     presentation::http::{
         ApiError,
-        dtos::auth::{LoginResponse, GoogleLoginRequest},
+        dtos::auth::{LoginResponse, OAuthLoginRequest},
     },
 };
 use super::build_cookie;
@@ -25,7 +25,7 @@ use super::build_cookie;
     post,
     path = "/auth/oauth/google/login",
     description = "Logs in a user using the code from Google's OAuth.",
-    request_body = GoogleLoginRequest,
+    request_body = OAuthLoginRequest,
     responses(
         (status = 200, description = "Login successful", body = LoginResponse, headers(
             ("Set-Cookie" = String, description = "HTTP-only cookies for access_token and refresh_token")
@@ -38,7 +38,7 @@ pub async fn google_login(
     State(config): State<Arc<Config>>,
     State(auth_service): State<Arc<dyn AuthUseCase>>,
     jar: CookieJar,
-    Json(payload): Json<GoogleLoginRequest>,
+    Json(payload): Json<OAuthLoginRequest>,
 ) -> Result<(CookieJar, Json<LoginResponse>), ApiError> {
     info!("Google OAuth login requested with code {}`", &payload.code);
 
@@ -47,11 +47,45 @@ pub async fn google_login(
         .await?;
 
     // Attach cookies
-    // Access token goes to the root path ("/")
     let access_cookie = build_cookie("access_token", tokens.access_token, "/", &config.api.protocol);
     let refresh_cookie = build_cookie("refresh_token", tokens.refresh_token, "/auth/refresh-session", &config.api.protocol);
 
-    info!("Google OAuth login successful for code {}`", &payload.code);
+    info!("Google OAuth login successful for code '{}'", &payload.code);
+
+    let response = LoginResponse { message: "Login successful".to_string() };
+    Ok((jar.add(access_cookie).add(refresh_cookie), Json(response)))
+}
+
+#[utoipa::path(
+    post,
+    path = "/auth/oauth/github/login",
+    description = "Logs in a user using the code from GitHub's OAuth.",
+    request_body = OAuthLoginRequest,
+    responses(
+        (status = 200, description = "Login successful", body = LoginResponse, headers(
+            ("Set-Cookie" = String, description = "HTTP-only cookies for access_token and refresh_token")
+        )),
+        (status = 500, description = "Internal Server Error")
+    ),
+    tags = ["Authentication"]
+)]
+pub async fn github_login(
+    State(config): State<Arc<Config>>,
+    State(auth_service): State<Arc<dyn AuthUseCase>>,
+    jar: CookieJar,
+    Json(payload): Json<OAuthLoginRequest>,
+) -> Result<(CookieJar, Json<LoginResponse>), ApiError> {
+    info!("GitHub OAuth login requested with code {}`", &payload.code);
+
+    let tokens = auth_service
+        .login_user_via_github(&payload.code)
+        .await?;
+
+    // Attach cookies
+    let access_cookie = build_cookie("access_token", tokens.access_token, "/", &config.api.protocol);
+    let refresh_cookie = build_cookie("refresh_token", tokens.refresh_token, "/auth/refresh-session", &config.api.protocol);
+
+    info!("GitHub OAuth login successful for code '{}'", &payload.code);
 
     let response = LoginResponse { message: "Login successful".to_string() };
     Ok((jar.add(access_cookie).add(refresh_cookie), Json(response)))
@@ -62,6 +96,7 @@ pub async fn google_login(
 pub struct OAuthLoginTemplate<'a> {
     oauth_redirect_url: &'a str,
     google_client_id: &'a str,
+    github_client_id: &'a str,
 }
 
 #[utoipa::path(
@@ -85,6 +120,7 @@ pub async fn oauth_login_ui(
     let template = OAuthLoginTemplate {
         oauth_redirect_url: &config.oauth.redirect_url(config.frontend.url()),
         google_client_id: &config.oauth.google.client_id,
+        github_client_id: &config.oauth.github.client_id,
     };
 
     let html_content = template
@@ -99,6 +135,7 @@ pub async fn oauth_login_ui(
 pub struct OAuthCallbackTemplate<'a> {
     pub login_ui_url: &'a str,
     pub google_login_uri: &'a str,
+    pub github_login_uri: &'a str,
 }
 
 #[utoipa::path(
@@ -125,6 +162,7 @@ pub async fn oauth_callback_ui(
     let template = OAuthCallbackTemplate {
         login_ui_url: &config.oauth.login_ui_url(config.frontend.url()),
         google_login_uri: &format!("/{}", config.oauth.google.login_endpoint),
+        github_login_uri: &format!("/{}", config.oauth.github.login_endpoint),
     };
 
     let html_content = template

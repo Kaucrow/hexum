@@ -7,7 +7,7 @@ use crate::domain::user::EmailAddress;
 #[async_trait]
 pub trait VerificationPort: Send + Sync + 'static {
     // Stores a token mapped to a User ID with an expiry
-    async fn store_verification_token(&self, user_id: Uuid, token: &str, expires_in_secs: u64) -> Result<(), VerificationPortError>;
+    async fn store_verification_token(&self, user_id: &Uuid, token: &str, expires_in_secs: u64) -> Result<(), VerificationPortError>;
     // Retrieves user_id from token
     async fn consume_verification_token(&self, token: &str) -> Result<Uuid, VerificationPortError>;
 }

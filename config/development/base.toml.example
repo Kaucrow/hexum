@@ -2,12 +2,13 @@ debug = true
 
 [api]
 host = "0.0.0.0"
+domain = ""
 port = 8080
 protocol = "http"
 docs_endpoint = "docs"
 
 [frontend]
-host = "localhost"
+domain = "localhost"
 port = 8080
 protocol = "http"
 
@@ -15,9 +16,9 @@ protocol = "http"
 pool_max_conn = 5
 host = "localhost"
 port = 5432
-user = "kaucrow"
-passwd = "postgres"
-name = "dev"
+user = ""
+passwd = ""
+name = ""
 
 [redis]
 host = "localhost"
@@ -31,3 +32,17 @@ host = "smtp.gmail.com"
 port = 587
 user = ""
 passwd = ""
+
+[oauth]
+login_ui_endpoint = "auth/oauth/login-ui"
+callback_endpoint = "auth/oauth/callback-ui"
+
+[oauth.google]
+login_endpoint = "auth/oauth/google/login"
+client_id = ""
+client_secret = ""
+
+[oauth.github]
+login_endpoint = "auth/oauth/github/login"
+client_id = ""
+client_secret = ""

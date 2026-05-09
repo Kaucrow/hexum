@@ -7,7 +7,7 @@ use crate::application::ports::output::{VerificationPort, VerificationPortError}
 use super::RedisVerificationAdapter;
 
 impl RedisVerificationAdapter {
-    async fn do_store_verification_token(&self, user_id: Uuid, token: &str, expires_in_secs: u64) -> Result<(), LocalError> {
+    async fn do_store_verification_token(&self, user_id: &Uuid, token: &str, expires_in_secs: u64) -> Result<(), LocalError> {
         let key = self.format_key(token);
 
         let _: () = self.conn.clone().set_ex(key, user_id.to_string(), expires_in_secs)
@@ -34,7 +34,7 @@ impl RedisVerificationAdapter {
 
 #[async_trait]
 impl VerificationPort for RedisVerificationAdapter {
-    async fn store_verification_token(&self, user_id: Uuid, token: &str, expires_in_secs: u64) -> Result<(), VerificationPortError> {
+    async fn store_verification_token(&self, user_id: &Uuid, token: &str, expires_in_secs: u64) -> Result<(), VerificationPortError> {
         Ok(self.do_store_verification_token(user_id, token, expires_in_secs).await?)
     }
 

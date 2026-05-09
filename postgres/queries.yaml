@@ -1,34 +1,59 @@
 user:
-  create: |
-    CREATE TABLE "user" (
-      id UUID PRIMARY KEY,
-      username VARCHAR(255) NOT NULL UNIQUE,
-      passwd TEXT NOT NULL,
-      email VARCHAR(255) NOT NULL UNIQUE,
-      roles TEXT[] NOT NULL DEFAULT '{}',
-      is_active BOOLEAN NOT NULL DEFAULT FALSE
-    )
   get_by_id: |
-    SELECT id, username, passwd, email, roles, is_active
+    SELECT id, username, email, roles, is_active
     FROM "user"
     WHERE id = $1
+
   get_by_username: |
-    SELECT id, username, passwd, email, roles, is_active
+    SELECT id, username, email, roles, is_active
     FROM "user"
     WHERE username = $1
+
   get_by_email: |
-    SELECT id, username, passwd, email, roles, is_active
+    SELECT id, username, email, roles, is_active
     FROM "user"
     WHERE email = $1
+
+  # Used for Password login
+  get_local_auth_by_username: |
+    SELECT u.id, u.username, u.email, u.roles, u.is_active, a.passwd
+    FROM "user" u
+    JOIN user_authenticator a ON u.id = a.user_id
+    WHERE u.username = $1 AND a.provider = 'local'
+
+  # Used for Password login
+  get_local_auth_by_email: |
+    SELECT u.id, u.username, u.email, u.roles, u.is_active, a.passwd
+    FROM "user" u
+    JOIN user_authenticator a ON u.id = a.user_id
+    WHERE u.email = $1 AND a.provider = 'local'
+
+  # Used for OAuth login
+  get_by_oauth: |
+    SELECT u.id, u.username, u.email, u.roles, u.is_active
+    FROM "user" u
+    JOIN user_authenticator a ON u.id = a.user_id
+    WHERE a.provider = $1 AND a.provider_id = $2
+
   insert: |
-    INSERT INTO
-      "user" (id, username, passwd, email, roles, is_active)
-    VALUES
-      ($1, $2, $3, $4, $5, $6)
+    INSERT INTO "user" (id, username, email, roles, is_active)
+    VALUES ($1, $2, $3, $4, $5)
+
   activate_by_id: |
     UPDATE "user"
     SET is_active = TRUE
     WHERE id = $1
+
   delete_by_id: |
     DELETE FROM "user"
     WHERE id = $1
+
+user_authenticator:
+  get_by_user_id_and_provider: |
+    SELECT id, user_id, provider, provider_id, passwd
+    FROM user_authenticator
+    WHERE user_id = $1 AND provider = $2
+
+  insert: |
+    INSERT INTO user_authenticator (id, user_id, provider, provider_id, passwd)
+    VALUES ($1, $2, $3, $4, $5)

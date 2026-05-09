@@ -1,18 +1,19 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use rand::distr::{Alphanumeric, SampleString};
+use uuid::Uuid;
 
 use crate::{
-    domain::user::{User, EmailAddress},
     application::ports::{
-        input::{AuthUseCase, AuthTokens, AuthUseCaseError},
+        input::{AuthTokens, AuthUseCase, AuthUseCaseError},
         output::{
-            UserRepository,
-            SessionPort, SessionPortError,
+            OAuthPort, OAuthPortError,
             SecurityPort, SecurityPortError,
-            GoogleAuthPort, GoogleAuthPortError,
+            SessionPort, SessionPortError,
+            UserRepository, UserRepositoryError,
         },
-    }
+    }, domain::user::{AuthProvider, EmailAddress, User, UserAuthenticator}
 };
 
 #[derive(Clone)]
@@ -20,7 +21,7 @@ pub struct AuthService {
     user_repo: Arc<dyn UserRepository>,
     session: Arc<dyn SessionPort>,
     security: Arc<dyn SecurityPort>,
-    google: Arc<dyn GoogleAuthPort>,
+    oauth: Arc<dyn OAuthPort>,
 }
 
 impl AuthService {
@@ -28,69 +29,144 @@ impl AuthService {
         user_repo: Arc<dyn UserRepository>,
         session: Arc<dyn SessionPort>,
         security: Arc<dyn SecurityPort>,
-        google: Arc<dyn GoogleAuthPort>,
+        oauth: Arc<dyn OAuthPort>,
     ) -> Self {
-        Self { user_repo, session, security, google }
+        Self { user_repo, session, security, oauth }
+    }
+
+    async fn resolve_and_login(
+        &self,
+        email_str: String,
+        external_id: String,
+        provider: AuthProvider,
+    ) -> Result<AuthTokens, AuthUseCaseError> {
+        let email = EmailAddress::new(email_str)
+            .map_err(|e| AuthUseCaseError::Internal(e.to_string()))?;
+
+        let user = match self.user_repo.get_user_by_email(&email).await {
+            Some(existing_user) => {
+                if !existing_user.is_active {
+                    return Err(AuthUseCaseError::UserInactive);
+                }
+                // Link the provider if this is the user's first time using this OAuth provider for login
+                self.ensure_provider_linked(&existing_user.id, provider, external_id).await?;
+                existing_user
+            }
+            None => {
+                // Completely new user
+                self.register_oauth_user(email, provider, external_id).await?
+            }
+        };
+
+        self.issue_session(&user.id).await
+    }
+
+    async fn ensure_provider_linked(
+        &self,
+        user_id: &Uuid,
+        provider: AuthProvider,
+        provider_id: String
+    ) -> Result<(), AuthUseCaseError> {
+        let existing_auth = self.user_repo.get_authenticator(user_id, provider.clone()).await?;
+
+        if existing_auth.is_none() {
+            let new_auth = UserAuthenticator::new_oauth(*user_id, provider, provider_id);
+            self.user_repo.add_authenticator(new_auth).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn register_oauth_user(
+        &self,
+        email: EmailAddress,
+        provider: AuthProvider,
+        provider_id: String
+    ) -> Result<User, AuthUseCaseError> {
+        let suffix = Alphanumeric.sample_string(&mut rand::rng(), 6);
+        let temp_username = format!("user_{}", suffix);
+
+        let user = User::new(temp_username, &email.as_str()).map_err(|e| AuthUseCaseError::Internal(e.to_string()))?;
+        let auth = UserAuthenticator::new_oauth(user.id, provider, provider_id);
+
+        self.user_repo.add_new_user(user.clone()).await?;
+        self.user_repo.add_authenticator(auth).await?;
+
+        Ok(user)
+    }
+
+    async fn issue_session(&self, user_id: &Uuid) -> Result<AuthTokens, AuthUseCaseError> {
+        let access_token = self.security.generate_access_token(user_id)?;
+        let refresh_token = self.security.generate_refresh_token();
+
+        self.session
+            .store_session(&refresh_token, user_id, 7)
+            .await?;
+
+        Ok(AuthTokens { access_token, refresh_token })
     }
 }
 
 #[async_trait]
 impl AuthUseCase for AuthService {
-    async fn login_user(&self, username: &str, password: &str) -> Result<AuthTokens, AuthUseCaseError> {
-        let user = self.user_repo.get_user_by_username(username).await
-            .ok_or(AuthUseCaseError::InvalidUsername)?;
+    async fn login_user(&self, identity: &str, passwd: &str) -> Result<AuthTokens, AuthUseCaseError> {
+        let user = if let Some(u) = self.user_repo.get_user_by_username(identity).await {
+            u
+        } else {
+            let email = EmailAddress::new(identity.to_string())
+                .map_err(|e| AuthUseCaseError::Parse(e.to_string()))?;
+
+            self.user_repo.get_user_by_email(&email).await
+                .ok_or(AuthUseCaseError::UserNotFound)?
+        };
 
         if !user.is_active {
             return Err(AuthUseCaseError::UserInactive)
         }
 
-        if !self.security.verify_password(&password, &user.passwd) {
+        let local_authenticator = self.user_repo
+            .get_authenticator(&user.id, AuthProvider::Local)
+            .await?
+            .ok_or(AuthUseCaseError::UserNotFound)?;
+
+        let passwd_hash = local_authenticator.passwd
+            .ok_or(AuthUseCaseError::Internal("User with local auth has no password set.".to_string()))?;
+
+        if !self.security.verify_password(&passwd, &passwd_hash) {
             return Err(AuthUseCaseError::InvalidPassword);
         }
 
-        let access_token = self.security.generate_access_token(&user.id).unwrap();
-        let refresh_token = self.security.generate_refresh_token();
+        let auth_tokens = self.issue_session(&user.id).await?;
 
-        self.session
-            .store_session(&refresh_token, &user.id, 7)
-            .await?;
-
-        Ok(AuthTokens {
-            access_token,
-            refresh_token,
-        })
+        Ok(auth_tokens)
     }
 
     async fn login_user_via_google(&self, code: &str) -> Result<AuthTokens, AuthUseCaseError> {
-        let google_user = self.google
-            .get_user_info_by_code(code)
+        let google_user = self.oauth
+            .get_google_user_info_by_code(code)
             .await
             .map_err(|e| AuthUseCaseError::Internal(format!("Google Auth failed: {:?}", e)))?;
 
-        let google_user_email = EmailAddress::new(google_user.email)
-            .map_err(|e| AuthUseCaseError::Internal(format!("Tried to parse an invalid email: {:?}", e)))?;
+        self.resolve_and_login(
+            google_user.email,
+            google_user.external_id,
+            AuthProvider::Google,
+        )
+        .await
+    }
 
-        let user = self.user_repo
-            .get_user_by_email(&google_user_email)
+    async fn login_user_via_github(&self, code: &str) -> Result<AuthTokens, AuthUseCaseError> {
+        let github_user = self.oauth
+            .get_github_user_info_by_code(code)
             .await
-            .ok_or(AuthUseCaseError::UserNotFound)?;
+            .map_err(|e| AuthUseCaseError::Internal(format!("GitHub Auth failed: {:?}", e)))?;
 
-        if !user.is_active {
-            return Err(AuthUseCaseError::UserInactive);
-        }
-
-        let access_token = self.security.generate_access_token(&user.id)?;
-
-        let refresh_token = self.security.generate_refresh_token();
-
-        self.session
-            .store_session(&refresh_token, &user.id, 7)
-            .await?;
-
-        Ok(AuthTokens {
-            access_token,
-            refresh_token,
-        })
+        self.resolve_and_login(
+            github_user.email,
+            github_user.external_id.to_string(),
+            AuthProvider::GitHub,
+        )
+        .await
     }
 
     async fn verify_user(&self, access_token: &str) -> Result<User, AuthUseCaseError> {
@@ -124,16 +200,9 @@ impl AuthUseCase for AuthService {
             return Err(AuthUseCaseError::UserInactive)
         }
 
-        // Generate brand new tokens
-        let access_token = self.security.generate_access_token(&user.id)?;
-        let refresh_token = self.security.generate_refresh_token();
+        let auth_tokens = self.issue_session(&user_id).await?;
 
-        // Store the new session
-        self.session
-            .store_session(&refresh_token, &user.id, 7)
-            .await?;
-
-        Ok(AuthTokens { access_token, refresh_token })
+        Ok(auth_tokens)
     }
 
     async fn logout_user(&self, refresh_token: &str) -> Result<(), AuthUseCaseError> {
@@ -143,6 +212,14 @@ impl AuthUseCase for AuthService {
             .ok_or(AuthUseCaseError::InvalidRefreshToken)?;
 
         Ok(())
+    }
+}
+
+impl From<UserRepositoryError> for AuthUseCaseError {
+    fn from(e: UserRepositoryError) -> Self {
+        match e {
+            _ => AuthUseCaseError::Internal(e.to_string()),
+        }
     }
 }
 
@@ -163,10 +240,10 @@ impl From<SecurityPortError> for AuthUseCaseError {
     }
 }
 
-impl From<GoogleAuthPortError> for AuthUseCaseError {
-    fn from(e: GoogleAuthPortError) -> Self {
+impl From<OAuthPortError> for AuthUseCaseError {
+    fn from(e: OAuthPortError) -> Self {
         match e {
-            GoogleAuthPortError::InvalidCode => AuthUseCaseError::InvalidOAuthCode(e.to_string()),
+            OAuthPortError::InvalidCode => AuthUseCaseError::InvalidOAuthCode(e.to_string()),
             _ => AuthUseCaseError::Internal(e.to_string()),
         }
     }

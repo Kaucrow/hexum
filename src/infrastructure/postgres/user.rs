@@ -6,11 +6,11 @@ use uuid::Uuid;
 
 use crate::{
     application::ports::output::{UserRepository, UserRepositoryError},
-    domain::user::{User, Role, EmailAddress},
+    domain::user::{AuthProvider, EmailAddress, Role, User, UserAuthenticator},
 };
 use super::{
     PostgresAdapter, QUERIES,
-    dtos::user::UserDbRow,
+    dtos::user::{UserDbRow, UserAuthenticatorDbRow},
 };
 
 impl PostgresAdapter {
@@ -43,10 +43,49 @@ impl PostgresAdapter {
         sqlx::query(&queries.user.insert)
             .bind(user.id)
             .bind(user.username)
-            .bind(user.passwd)
             .bind(user.email.as_str())
             .bind(roles_strings)
             .bind(user.is_active)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn do_get_authenticator(
+        &self,
+        user_id: &Uuid,
+        auth_provider: AuthProvider,
+    ) -> Result<Option<UserAuthenticator>, LocalError> {
+        let queries = QUERIES.get().expect("Queries not initialized.");
+
+        let record = sqlx::query_as::<_, UserAuthenticatorDbRow>(
+            &queries.user_authenticator.get_by_user_id_and_provider
+        )
+        .bind(user_id)
+        .bind(auth_provider.to_string())
+        .fetch_optional(&self.pool)
+        .await?
+        .map(|row| UserAuthenticator {
+            id: row.id,
+            user_id: row.user_id,
+            provider: auth_provider,
+            provider_id: row.provider_id,
+            passwd: row.passwd,
+        });
+
+        Ok(record)
+    }
+
+    async fn do_add_authenticator(&self, user_authenticator: UserAuthenticator) -> Result<(), LocalError> {
+        let queries = QUERIES.get().expect("Queries not initialized.");
+
+        sqlx::query(&queries.user_authenticator.insert)
+            .bind(user_authenticator.id)
+            .bind(user_authenticator.user_id)
+            .bind(user_authenticator.provider.to_string())
+            .bind(user_authenticator.provider_id)
+            .bind(user_authenticator.passwd)
             .execute(&self.pool)
             .await?;
 
@@ -97,7 +136,6 @@ impl UserRepository for PostgresAdapter {
         Some(User {
             id: record.id,
             username: record.username,
-            passwd: record.passwd,
             email: email_vo,
             roles: parsed_roles,
             is_active: record.is_active,
@@ -123,7 +161,6 @@ impl UserRepository for PostgresAdapter {
         Some(User {
             id: record.id,
             username: record.username,
-            passwd: record.passwd,
             email: email_vo,
             roles: parsed_roles,
             is_active: record.is_active,
@@ -149,7 +186,6 @@ impl UserRepository for PostgresAdapter {
         Some(User {
             id: record.id,
             username: record.username,
-            passwd: record.passwd,
             email: email_vo,
             roles: parsed_roles,
             is_active: record.is_active,
@@ -166,6 +202,21 @@ impl UserRepository for PostgresAdapter {
 
     async fn delete_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError> {
         Ok(self.do_delete_user_by_id(id).await?)
+    }
+
+    async fn get_authenticator(
+        &self,
+        user_id: &Uuid,
+        auth_provider: AuthProvider,
+    ) -> Result<Option<UserAuthenticator>, UserRepositoryError> {
+        Ok(self.do_get_authenticator(user_id, auth_provider).await?)
+    }
+
+    async fn add_authenticator(
+        &self,
+        user_authenticator: UserAuthenticator
+    ) -> Result<(), UserRepositoryError> {
+        Ok(self.do_add_authenticator(user_authenticator).await?)
     }
 }
 

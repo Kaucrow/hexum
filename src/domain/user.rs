@@ -2,59 +2,21 @@ use strum::{Display, EnumString};
 use thiserror::Error;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, PartialEq, Eq, Display, EnumString)]
-pub enum Role {
-    Admin,
-    Manager,
-    BasicUser,
-}
-
 #[derive(Debug, Clone)]
 pub struct User {
     pub id: Uuid,
     pub username: String,
-    pub passwd: String,
     pub email: EmailAddress,
     pub roles: Vec<Role>,
     pub is_active: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EmailAddress(String);
-
-impl EmailAddress {
-    // Create an EmailAddress.
-    // If it doesn't have an '@', it refuses to be created.
-    pub fn new(email: String) -> Result<Self, UserError> {
-        if !email.contains('@') {
-            return Err(UserError::InvalidEmail);
-        }
-        Ok(Self(email))
-    }
-
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-#[derive(Error, Debug)]
-pub enum UserError {
-    #[error("The email address provided is invalid.")]
-    InvalidEmail,
-    #[error("Password must be at least 8 characters.")]
-    PasswordTooShort,
-    #[error("This user is already deactivated.")]
-    UserAlreadyDeactivated,
-    #[error("User lacks the required role.")]
-    InsufficientPermissions,
-}
-
 impl User {
-    pub fn new(username: &String, passwd: &String, email: &String) -> Result<Self, UserError> {
+    /// Creates a new User.
+    pub fn new(username: String, email: &str) -> Result<Self, UserError> {
         Ok(Self {
             id: uuid::Uuid::new_v4(),
-            username: username.clone(),
-            passwd: passwd.clone(),
+            username: username,
             email: EmailAddress::new(email.to_string())?,
             roles: vec![Role::BasicUser],
             is_active: true,
@@ -82,4 +44,85 @@ impl User {
             self.roles.push(Role::Admin);
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Display, EnumString)]
+pub enum Role {
+    Admin,
+    Manager,
+    BasicUser,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EmailAddress(String);
+
+impl EmailAddress {
+    /// Creates an EmailAddress.
+    /// If it doesn't have an '@', it refuses to be created.
+    pub fn new(email: String) -> Result<Self, UserError> {
+        if !email.contains('@') {
+            return Err(UserError::InvalidEmail);
+        }
+        Ok(Self(email))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Error, Debug)]
+pub enum UserError {
+    #[error("The email address provided is invalid.")]
+    InvalidEmail,
+    #[error("Password must be at least 8 characters.")]
+    PasswordTooShort,
+    #[error("This user is already deactivated.")]
+    UserAlreadyDeactivated,
+    #[error("User lacks the required role.")]
+    InsufficientPermissions,
+}
+
+pub struct UserAuthenticator {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub provider: AuthProvider,
+    pub provider_id: Option<String>,    // OAuth provider ID or None for 'Local' provider
+    pub passwd: Option<String>,         // Hashed password or None for OAuth provider
+}
+
+impl UserAuthenticator {
+    /// Creates a new authenticator linked to a user.
+    /// Handles the logic of ensuring local has a password and OAuth has a provider_id.
+    pub fn new(
+        user_id: Uuid,
+        provider: AuthProvider,
+        provider_id: Option<String>,
+        passwd: Option<String>,
+    ) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            user_id,
+            provider,
+            provider_id,
+            passwd,
+        }
+    }
+
+    /// Helper to create a local password authenticator
+    pub fn new_local(user_id: Uuid, passwd: String) -> Self {
+        Self::new(user_id, AuthProvider::Local, None, Some(passwd))
+    }
+
+    /// Helper to create an OAuth authenticator
+    pub fn new_oauth(user_id: Uuid, provider: AuthProvider, external_id: String) -> Self {
+        Self::new(user_id, provider, Some(external_id), None)
+    }
+}
+
+#[derive(Debug, Clone, Display, EnumString)]
+pub enum AuthProvider {
+    Local,
+    Google,
+    GitHub,
 }

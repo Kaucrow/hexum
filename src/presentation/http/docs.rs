@@ -20,6 +20,7 @@ use super::{routes, dtos};
         routes::auth::creds::login,
         routes::auth::oauth::oauth_login_ui,
         routes::auth::oauth::google_login,
+        routes::auth::oauth::github_login,
         routes::auth::refresh_session,
         routes::auth::logout,
     ),

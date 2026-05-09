@@ -140,6 +140,7 @@ pub struct OAuthConfig {
     pub login_ui_endpoint: String,
     pub callback_endpoint: String,
     pub google: GoogleConfig,
+    pub github: GitHubConfig,
 }
 
 impl OAuthConfig {
@@ -154,6 +155,13 @@ impl OAuthConfig {
 
 #[derive(Deserialize, Clone)]
 pub struct GoogleConfig {
+    pub login_endpoint: String,
+    pub client_id: String,
+    pub client_secret: String,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct GitHubConfig {
     pub login_endpoint: String,
     pub client_id: String,
     pub client_secret: String,

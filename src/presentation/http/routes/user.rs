@@ -40,9 +40,8 @@ pub async fn register(
 ) -> Result<Json<RegisterResponse>, ApiError> {
     info!("User registration request with username `{}` & email `{}`", &payload.username, &payload.email);
 
-    let user = User::new(&payload.username, &payload.password, &payload.email)?;
-
-    user_service.register_user(user).await?;
+    let user = User::new(payload.username.clone(), &payload.email)?;
+    user_service.register_user(user, &payload.password).await?;
 
     info!("Registration successful for user with username `{}` & email `{}`", &payload.username, &payload.email);
 

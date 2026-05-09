@@ -5,8 +5,10 @@ use crate::domain::user::User;
 
 #[async_trait]
 pub trait AuthUseCase: Send + Sync + 'static {
-    async fn login_user(&self, username: &str, password: &str) -> Result<AuthTokens, AuthUseCaseError>;
+    /// Logs in a user via username/email.
+    async fn login_user(&self, identity: &str, passwd: &str) -> Result<AuthTokens, AuthUseCaseError>;
     async fn login_user_via_google(&self, code: &str) -> Result<AuthTokens, AuthUseCaseError>;
+    async fn login_user_via_github(&self, code: &str) -> Result<AuthTokens, AuthUseCaseError>;
     async fn verify_user(&self, access_token: &str) -> Result<User, AuthUseCaseError>;
     async fn refresh_session(&self, refresh_token: &str) -> Result<AuthTokens, AuthUseCaseError>;
     async fn logout_user(&self, refresh_token: &str) -> Result<(), AuthUseCaseError>;
@@ -19,9 +21,6 @@ pub struct AuthTokens {
 
 #[derive(Error, Debug)]
 pub enum AuthUseCaseError {
-    #[error("The username provided is invalid.")]
-    InvalidUsername,
-
     #[error("The password provided is invalid.")]
     InvalidPassword,
 
@@ -39,6 +38,9 @@ pub enum AuthUseCaseError {
 
     #[error("The user is inactive.")]
     UserInactive,
+
+    #[error("Parsing error: {0}")]
+    Parse(String),
 
     #[error("AuthUseCase: {0}")]
     Internal(String),
