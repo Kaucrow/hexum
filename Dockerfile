@@ -1,7 +1,7 @@
 # =======================
 #   Builder
 # =======================
-FROM rust:1.81-alpine AS builder
+FROM rust:1.88-alpine AS builder
 WORKDIR /usr/src/app
 
 RUN apk add --no-cache \
