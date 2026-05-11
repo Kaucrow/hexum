@@ -7,8 +7,7 @@ WORKDIR /usr/src/app
 RUN apk add --no-cache \
     musl-dev \
     build-base \
-    postgresql-dev \
-    openssl-dev
+    postgresql-dev
 
 COPY . .
 

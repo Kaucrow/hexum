@@ -13,17 +13,17 @@ axum-extra = { version = "0.12.6", features = ["cookie"] }
 chrono = { version = "0.4.44", features = ["serde"] }
 config = { version = "0.15.22", features = ["toml"] }
 dotenvy = "0.15.7"
-lettre = { version = "0.11.21", features = ["tokio1", "tokio1-native-tls"] }
+lettre = { version = "0.11.21", default-features = false, features = ["tokio1", "tokio1-rustls-tls", "hostname", "smtp-transport", "builder"] }
 local-ip-address = "0.6.12"
 oauth2 = "5.0.0"
 owo-colors = "4.3.0"
 pasetors = "0.7.8"
 rand = "0.10.1"
 redis = { version = "1.2.1", features = ["connection-manager", "tokio-comp"] }
-reqwest = { version = "0.13.3", features = ["form", "json"] }
+reqwest = { version = "0.13.3", features = ["form", "json", "rustls"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
-sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "uuid"] }
+sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio", "uuid", "tls-rustls"] }
 strip-ansi-escapes = "0.2.1"
 strum = { version = "0.28.0", features = ["derive"] }
 thiserror = "2.0.18"
