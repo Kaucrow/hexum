@@ -101,6 +101,25 @@ pub struct VerifyTemplate {
     token: String,
 }
 
+#[utoipa::path(
+    get,
+    path = "/user/verify-ui",
+    description = "**[DEVELOPMENT ENDPOINT]** Renders an email verification UI for testing purposes.",
+    params(
+        ("token" = String, Query, description = "The verification token sent via email")
+    ),
+    responses(
+        (
+            status = 200,
+            description = "Successfully rendered the verification HTML page",
+            body = String,
+            content_type = "text/html"
+        ),
+        (status = 400, description = "Missing or invalid query parameters"),
+        (status = 500, description = "Internal Server Error: Template rendering failed")
+    ),
+    tags = ["User"]
+)]
 pub async fn verify_ui(
     Query(queries): Query<VerifyQueryParams>,
 ) -> Result<impl IntoResponse, ApiError> {

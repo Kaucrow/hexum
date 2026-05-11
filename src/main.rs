@@ -8,7 +8,6 @@ use owo_colors::OwoColorize;
 
 use hexum::{
     AppState,
-    Environment,
     get_config,
     prelude::*,
     telemetry,
@@ -70,7 +69,7 @@ async fn main() -> Result<()> {
         .route("/auth/oauth/github/login", post(routes::auth::oauth::github_login))
         .route("/auth/refresh-session", post(routes::auth::refresh_session));
 
-    if matches!(config.environment, Environment::Development) {
+    if config.api.enable_dev_endpoints {
         app = app
             .route("/user/verify-ui", get(routes::user::verify_ui))
             .route("/auth/oauth/login-ui", get(routes::auth::oauth::oauth_login_ui))

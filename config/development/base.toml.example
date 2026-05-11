@@ -1,6 +1,7 @@
 debug = true
 
 [api]
+enable_dev_endpoints = true
 host = "0.0.0.0"
 domain = ""
 port = 8080

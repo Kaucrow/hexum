@@ -102,7 +102,7 @@ pub struct OAuthLoginTemplate<'a> {
 #[utoipa::path(
     get,
     path = "/auth/oauth/login-ui",
-    description = "**[DEVELOPMENT ENV ONLY]** Returns a simple HTML page to test OAuth.",
+    description = "**[DEV ENDPOINT]** Returns a simple HTML page to test OAuth.",
     responses(
         (
             status = 200,
@@ -110,7 +110,7 @@ pub struct OAuthLoginTemplate<'a> {
             body = String,
             content_type = "text/html"
         ),
-        (status = 500, description = "Internal Server Error template rendering failed")
+        (status = 500, description = "Internal Server Error: Template rendering failed")
     ),
     tags = ["Authentication"]
 )]
@@ -141,7 +141,7 @@ pub struct OAuthCallbackTemplate<'a> {
 #[utoipa::path(
     get,
     path = "/auth/oauth/callback-ui",
-    description = "**[DEVELOPMENT ENV ONLY]** The landing page for OAuth's redirect. Grabs the 'code' from the URL and exchanges it with the backend.",
+    description = "**[DEVELOPMENT ENDPOINT]** Renders a landing page for OAuth's redirect, for testing purposes. Grabs the 'code' from the URL and exchanges it with the backend.",
     params(
         ("code" = String, Query, description = "The authorization code returned by OAuth")
     ),
@@ -152,7 +152,7 @@ pub struct OAuthCallbackTemplate<'a> {
             body = String,
             content_type = "text/html"
         ),
-        (status = 500, description = "Internal Server Error template rendering failed")
+        (status = 500, description = "Internal Server Error: Template rendering failed")
     ),
     tags = ["Authentication"]
 )]

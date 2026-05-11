@@ -30,6 +30,7 @@ pub enum Environment {
 
 #[derive(Deserialize, Clone)]
 pub struct ApiConfig {
+    pub enable_dev_endpoints: bool,
     pub host: String,
     pub domain: String,
     pub port: u16,
@@ -182,7 +183,7 @@ pub fn get_config() -> Result<Config, config::ConfigError> {
             config_directory.join(filename),
         ))
         .add_source(
-            config::Environment::with_prefix("APP")
+            config::Environment::with_prefix("HEXUM")
                 .prefix_separator("_")
                 .separator("__"),
         )

@@ -15,6 +15,7 @@ use super::{routes, dtos};
         // User routes
         routes::user::register,
         routes::user::verify,
+        routes::user::verify_ui,
 
         // Auth routes
         routes::auth::local::login,
