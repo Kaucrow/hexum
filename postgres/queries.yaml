@@ -14,27 +14,6 @@ user:
     FROM "user"
     WHERE email = $1
 
-  # Used for Password login
-  get_local_auth_by_username: |
-    SELECT u.id, u.username, u.email, u.roles, u.is_active, a.passwd
-    FROM "user" u
-    JOIN user_authenticator a ON u.id = a.user_id
-    WHERE u.username = $1 AND a.provider = 'local'
-
-  # Used for Password login
-  get_local_auth_by_email: |
-    SELECT u.id, u.username, u.email, u.roles, u.is_active, a.passwd
-    FROM "user" u
-    JOIN user_authenticator a ON u.id = a.user_id
-    WHERE u.email = $1 AND a.provider = 'local'
-
-  # Used for OAuth login
-  get_by_oauth: |
-    SELECT u.id, u.username, u.email, u.roles, u.is_active
-    FROM "user" u
-    JOIN user_authenticator a ON u.id = a.user_id
-    WHERE a.provider = $1 AND a.provider_id = $2
-
   insert: |
     INSERT INTO "user" (id, username, email, roles, is_active)
     VALUES ($1, $2, $3, $4, $5)

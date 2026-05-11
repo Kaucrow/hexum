@@ -4,6 +4,7 @@ use anyhow::Result;
 use axum::{Router, routing::{get, post, delete}};
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
+use owo_colors::OwoColorize;
 
 use hexum::{
     AppState,
@@ -64,7 +65,7 @@ async fn main() -> Result<()> {
     let mut app = Router::new()
         .route("/user/register", post(routes::user::register))
         .route("/user/verify", get(routes::user::verify))
-        .route("/auth/creds/login", post(routes::auth::creds::login))
+        .route("/auth/local/login", post(routes::auth::local::login))
         .route("/auth/oauth/google/login", post(routes::auth::oauth::google_login))
         .route("/auth/oauth/github/login", post(routes::auth::oauth::github_login))
         .route("/auth/refresh-session", post(routes::auth::refresh_session));
@@ -86,11 +87,11 @@ async fn main() -> Result<()> {
         format!("{}:{}", config.api.host, config.api.port)
     ).await.unwrap();
 
-    info!("App running on {} mode", config.environment);
-    info!("API listening on {}...", config.api.url());
-    info!("View API docs at {}{}...", config.api.url(), config.api.docs_endpoint);
+    info!("Hexum is running on {} mode", config.environment.cyan().bold());
+    info!("API listening on {}", config.api.url().yellow());
+    info!("View API docs at {}{}", config.api.url().yellow(), config.api.docs_endpoint.yellow().bold());
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app).await?;
 
     Ok(())
 }

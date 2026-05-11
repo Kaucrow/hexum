@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
-argon2 = "0.5.3"
+argon2 = { version = "0.5.3", features = ["std"] }
 askama = "0.16.0"
 async-trait = "0.1.89"
 axum = { version = "0.8.9", features = ["macros"] }

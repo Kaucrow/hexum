@@ -28,7 +28,7 @@ pub async fn manager_dashboard(
         return Err(StatusCode::FORBIDDEN);
     }
 
-    Ok(Json(serde_json::json!({ "msg": format!("Welcome back, {}", user.username) })))
+    Ok(Json(serde_json::json!({ "msg": format!("Welcome back, {}", user.username.as_str()) })))
 }
 
 #[utoipa::path(

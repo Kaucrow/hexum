@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 use crate::{
     application::ports::output::{UserRepository, UserRepositoryError},
-    domain::user::{AuthProvider, EmailAddress, Role, User, UserAuthenticator},
+    domain::user::{AuthProvider, Username, EmailAddress, Role, User, UserAuthenticator},
 };
 use super::{
     PostgresAdapter, QUERIES,
@@ -18,7 +18,7 @@ impl PostgresAdapter {
         let queries = QUERIES.get().expect("Queries not initialized.");
 
         let user_by_username = sqlx::query_as::<_, UserDbRow>(&queries.user.get_by_username)
-            .bind(&user.username)
+            .bind(user.username.as_str())
             .fetch_optional(&self.pool)
             .await?;
 
@@ -42,7 +42,7 @@ impl PostgresAdapter {
 
         sqlx::query(&queries.user.insert)
             .bind(user.id)
-            .bind(user.username)
+            .bind(user.username.as_str())
             .bind(user.email.as_str())
             .bind(roles_strings)
             .bind(user.is_active)
@@ -131,11 +131,12 @@ impl UserRepository for PostgresAdapter {
             .filter_map(|r| Role::from_str(&r).ok())
             .collect();
 
+        let username_vo = Username::new(record.username).ok()?;
         let email_vo = EmailAddress::new(record.email).ok()?;
 
         Some(User {
             id: record.id,
-            username: record.username,
+            username: username_vo,
             email: email_vo,
             roles: parsed_roles,
             is_active: record.is_active,
@@ -156,11 +157,12 @@ impl UserRepository for PostgresAdapter {
             .filter_map(|r| Role::from_str(&r).ok())
             .collect();
 
+        let username_vo = Username::new(record.username).ok()?;
         let email_vo = EmailAddress::new(record.email).ok()?;
 
         Some(User {
             id: record.id,
-            username: record.username,
+            username: username_vo,
             email: email_vo,
             roles: parsed_roles,
             is_active: record.is_active,
@@ -181,11 +183,12 @@ impl UserRepository for PostgresAdapter {
             .filter_map(|r| Role::from_str(&r).ok())
             .collect();
 
+        let username_vo = Username::new(record.username).ok()?;
         let email_vo = EmailAddress::new(record.email).ok()?;
 
         Some(User {
             id: record.id,
-            username: record.username,
+            username: username_vo,
             email: email_vo,
             roles: parsed_roles,
             is_active: record.is_active,

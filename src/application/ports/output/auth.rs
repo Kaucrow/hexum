@@ -19,6 +19,7 @@ pub enum SessionPortError {
 #[async_trait]
 pub trait SecurityPort: Send + Sync + 'static {
     fn verify_password(&self, password: &str, hash: &str) -> bool;
+    fn hash(&self, s: &str) -> Result<String, SecurityPortError>;
     fn verify_access_token(&self, token: &str) -> Result<Uuid, SecurityPortError>;
     fn generate_access_token(&self, user_id: &Uuid) -> Result<String, SecurityPortError>;
     fn generate_refresh_token(&self) -> String;

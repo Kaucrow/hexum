@@ -22,7 +22,7 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
         parts: &mut Parts,
         state: &AppState,
     ) -> Result<Self, Self::Rejection> {
-        info!("Verification request received");
+        info!("Session verification request received");
 
         // Pull dependencies from AppState
         let auth_service: Arc<dyn AuthUseCase> = axum::extract::FromRef::from_ref(state);
@@ -39,11 +39,11 @@ impl FromRequestParts<AppState> for AuthenticatedUser {
             .verify_user(access_token)
             .await
             .map_err(|e| {
-                warn!("Verification failed: {e}");
+                warn!("Session verification failed: {e}");
                 StatusCode::UNAUTHORIZED
             })?;
 
-        info!("Verification successful for user `{}`", user.username);
+        info!("Session verification successful for user `{}`", user.username.as_str());
 
         Ok(Self(user))
     }

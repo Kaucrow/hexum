@@ -1,6 +1,11 @@
+use lettre::{
+    Message,
+    AsyncTransport,
+    message::{SinglePart, MultiPart},
+};
 use async_trait::async_trait;
 use thiserror::Error;
-use lettre::{Message, AsyncTransport};
+use askama::Template;
 
 use crate::{
     domain::user::EmailAddress,
@@ -8,15 +13,32 @@ use crate::{
 };
 use super::LettreEmailAdapter;
 
+#[derive(Template)]
+#[template(path = "verification_email.html")]
+struct VerificationEmailTemplate<'a> {
+    url: &'a str,
+}
+
 impl LettreEmailAdapter {
     async fn do_send_verification_email(&self, to: &EmailAddress, token: &str) -> Result<(), LocalError> {
         let url = format!("{}user/verify-ui?token={}", self.frontend_url, token);
+
+        let template = VerificationEmailTemplate { url: &url };
+        let html_body = template.render()?;
+
         let email = Message::builder()
             .from("No Reply <noreply@hexum.dev>".parse()?)
-            .reply_to("No Reply <do-not-reply@hexum.dev>".parse()?)
             .to(to.as_str().parse()?)
             .subject("Verify your account")
-            .body(format!("Click here to verify: {}", url))?;
+            .multipart(
+                MultiPart::alternative()
+                    .singlepart(
+                        SinglePart::plain(format!("Verify your account here: {}", url))
+                    )
+                    .singlepart(
+                        SinglePart::html(html_body)
+                    )
+            )?;
 
         self.mailer.send(email).await?;
 
@@ -39,14 +61,12 @@ pub enum LocalError {
     LettreSmtp(#[from] lettre::transport::smtp::Error),
     #[error(transparent)]
     LettreAddress(#[from] lettre::address::AddressError),
+    #[error(transparent)]
+    Askama(#[from] askama::Error),
 }
 
 impl From<LocalError> for EmailPortError {
     fn from(e: LocalError) -> Self {
-        match e {
-            LocalError::LettreError(e) => EmailPortError::Internal(e.to_string()),
-            LocalError::LettreSmtp(e) => EmailPortError::Internal(e.to_string()),
-            LocalError::LettreAddress(e) => EmailPortError::Internal(e.to_string()),
-        }
+        EmailPortError::Internal(e.to_string())
     }
 }

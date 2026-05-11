@@ -23,11 +23,11 @@ use crate::{
 #[utoipa::path(
     post,
     path = "/user/register",
-    description = "Registers a new user with username, password & email",
+    description = "Registers a new user with username, password & email. The username must only contain alphanumeric characters, and will be converted to lowercase.",
     request_body = RegisterRequest,
     responses(
         (status = 200, description = "Registration successful", body = RegisterResponse),
-        (status = 400, description = "Bad Request - Invalid email format or password too short"),
+        (status = 400, description = "Bad Request - Invalid email format, username format, or password too short"),
         (status = 409, description = "Conflict - The provided username or email is already in use"),
         (status = 500, description = "Internal Server Error")
     ),
@@ -40,7 +40,7 @@ pub async fn register(
 ) -> Result<Json<RegisterResponse>, ApiError> {
     info!("User registration request with username `{}` & email `{}`", &payload.username, &payload.email);
 
-    let user = User::new(payload.username.clone(), &payload.email)?;
+    let user = User::new(&payload.username, &payload.email)?;
     user_service.register_user(user, &payload.password).await?;
 
     info!("Registration successful for user with username `{}` & email `{}`", &payload.username, &payload.email);
@@ -83,7 +83,7 @@ impl From<UserError> for ApiError {
     fn from(e: UserError) -> Self {
         #[allow(unreachable_patterns)]
         match e {
-            UserError::InvalidEmail | UserError::PasswordTooShort => {
+            UserError::InvalidUsername | UserError::InvalidEmail | UserError::PasswordTooShort => {
                 warn!("Validation error: {e}");
                 ApiError::BadRequest(e.to_string())
             }

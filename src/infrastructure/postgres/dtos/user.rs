@@ -10,6 +10,7 @@ pub struct UserDbRow {
 }
 
 #[derive(sqlx::FromRow)]
+#[allow(dead_code)]
 pub struct UserAuthenticatorDbRow {
     pub id: Uuid,
     pub user_id: Uuid,

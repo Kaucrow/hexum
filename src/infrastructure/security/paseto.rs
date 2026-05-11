@@ -1,5 +1,11 @@
 use async_trait::async_trait;
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use argon2::{
+    Argon2,
+    PasswordHash,
+    PasswordVerifier,
+    PasswordHasher,
+    password_hash::{SaltString, rand_core::OsRng},
+};
 use pasetors::{
     Local,
     claims::{Claims, ClaimsValidationRules},
@@ -16,6 +22,14 @@ use crate::application::ports::output::{SecurityPort, SecurityPortError};
 use super::PasetoSecurityAdapter;
 
 impl PasetoSecurityAdapter {
+    fn do_hash(&self, s: &str) -> Result<String, LocalError> {
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        let hash = argon2.hash_password(s.as_bytes(), &salt)?.to_string();
+
+        Ok(hash)
+    }
+
     fn do_verify_access_token(&self, token: &str) -> Result<Uuid, LocalError> {
         let validation_rules = ClaimsValidationRules::new();
         let untrusted_token = UntrustedToken::<Local, V4>::try_from(token)
@@ -68,6 +82,11 @@ impl SecurityPort for PasetoSecurityAdapter {
             .is_ok()
     }
 
+    // Hash a string with Argon2
+    fn hash(&self, s: &str) -> Result<String, SecurityPortError> {
+        Ok(self.do_hash(s)?)
+    }
+
     // Verify a PASETO v4 access token & return the user_id
     fn verify_access_token(&self, token: &str) -> Result<Uuid, SecurityPortError> {
         Ok(self.do_verify_access_token(token)?)
@@ -96,7 +115,9 @@ pub enum LocalError {
     #[error(transparent)]
     Paseto(#[from] pasetors::errors::Error),
     #[error(transparent)]
-    Uuid(#[from] uuid::Error)
+    Uuid(#[from] uuid::Error),
+    #[error(transparent)]
+    Argon2(#[from] argon2::password_hash::Error),
 }
 
 impl From<LocalError> for SecurityPortError {
@@ -105,6 +126,7 @@ impl From<LocalError> for SecurityPortError {
             LocalError::TokenVerificationFailed => SecurityPortError::TokenVerificationFailed,
             LocalError::Paseto(e) => SecurityPortError::Internal(e.to_string()),
             LocalError::Uuid(e) => SecurityPortError::Internal(e.to_string()),
+            LocalError::Argon2(e) => SecurityPortError::Internal(e.to_string()),
         }
     }
 }

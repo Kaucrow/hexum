@@ -9,7 +9,7 @@ use crate::{
         output::{
             UserRepository, UserRepositoryError,
             VerificationPort, VerificationPortError,
-            SecurityPort,
+            SecurityPort, SecurityPortError,
             EmailPort, EmailPortError,
         },
     }
@@ -39,7 +39,9 @@ impl UserUseCase for UserService {
     async fn register_user(&self, user: User, passwd: &str) -> Result<(), UserUseCaseError> {
         let user_id = user.id.clone();
         let user_email = user.email.clone();
-        let auth = UserAuthenticator::new_local(user_id, passwd.to_string());
+
+        let passwd_hash = self.security.hash(passwd)?;
+        let auth = UserAuthenticator::new_local(user_id, passwd_hash);
 
         self.user_repo.add_new_user(user).await?;
         self.user_repo.add_authenticator(auth).await?;
@@ -69,6 +71,14 @@ impl From<UserRepositoryError> for UserUseCaseError {
         match e {
             UserRepositoryError::UsernameInUse => UserUseCaseError::UsernameInUse,
             UserRepositoryError::EmailInUse => UserUseCaseError::EmailInUse,
+            _ => UserUseCaseError::Internal(e.to_string()),
+        }
+    }
+}
+
+impl From<SecurityPortError> for UserUseCaseError {
+    fn from(e: SecurityPortError) -> Self {
+        match e {
             _ => UserUseCaseError::Internal(e.to_string()),
         }
     }

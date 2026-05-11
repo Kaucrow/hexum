@@ -4,9 +4,9 @@ use utoipa::{ToSchema, IntoParams};
 
 #[derive(Serialize, ToSchema)]
 pub struct UserResponse {
-    #[schema(example = "usr_123abc")]
+    #[schema(example = "f47ac10b-58cc-4372-a567-0e02b2c3d479")]
     pub id: String,
-    #[schema(example = "john_doe")]
+    #[schema(example = "johndoe")]
     pub username: String,
     pub is_active: bool,
 }
@@ -15,7 +15,7 @@ impl From<User> for UserResponse {
     fn from(user: User) -> Self {
         Self {
             id: user.id.to_string(),
-            username: user.username,
+            username: user.username.as_str().to_string(),
             is_active: user.is_active,
         }
     }
@@ -23,11 +23,11 @@ impl From<User> for UserResponse {
 
 #[derive(Deserialize, ToSchema)]
 pub struct RegisterRequest {
-    #[schema(example = "john_doe")]
+    #[schema(example = "johndoe")]
     pub username: String,
     #[schema(example = "password123")]
     pub password: String,
-    #[schema(example = "johndoe@email.com")]
+    #[schema(example = "johndoe@gmail.com")]
     pub email: String
 }
 

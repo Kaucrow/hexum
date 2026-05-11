@@ -17,7 +17,7 @@ use super::{routes, dtos};
         routes::user::verify,
 
         // Auth routes
-        routes::auth::creds::login,
+        routes::auth::local::login,
         routes::auth::oauth::oauth_login_ui,
         routes::auth::oauth::google_login,
         routes::auth::oauth::github_login,

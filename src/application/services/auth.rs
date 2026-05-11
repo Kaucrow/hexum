@@ -65,7 +65,7 @@ impl AuthService {
         &self,
         user_id: &Uuid,
         provider: AuthProvider,
-        provider_id: String
+        provider_id: String,
     ) -> Result<(), AuthUseCaseError> {
         let existing_auth = self.user_repo.get_authenticator(user_id, provider.clone()).await?;
 
@@ -81,12 +81,12 @@ impl AuthService {
         &self,
         email: EmailAddress,
         provider: AuthProvider,
-        provider_id: String
+        provider_id: String,
     ) -> Result<User, AuthUseCaseError> {
         let suffix = Alphanumeric.sample_string(&mut rand::rng(), 6);
         let temp_username = format!("user_{}", suffix);
 
-        let user = User::new(temp_username, &email.as_str()).map_err(|e| AuthUseCaseError::Internal(e.to_string()))?;
+        let user = User::new(&temp_username, &email.as_str()).map_err(|e| AuthUseCaseError::Internal(e.to_string()))?;
         let auth = UserAuthenticator::new_oauth(user.id, provider, provider_id);
 
         self.user_repo.add_new_user(user.clone()).await?;
@@ -113,8 +113,10 @@ impl AuthUseCase for AuthService {
         let user = if let Some(u) = self.user_repo.get_user_by_username(identity).await {
             u
         } else {
+            // If the identity is not a username, try parsing is as email.
+            // If it's not a valid email format, we stop here.
             let email = EmailAddress::new(identity.to_string())
-                .map_err(|e| AuthUseCaseError::Parse(e.to_string()))?;
+                .or(Err(AuthUseCaseError::UserNotFound))?;
 
             self.user_repo.get_user_by_email(&email).await
                 .ok_or(AuthUseCaseError::UserNotFound)?

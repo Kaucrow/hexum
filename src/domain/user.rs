@@ -5,7 +5,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct User {
     pub id: Uuid,
-    pub username: String,
+    pub username: Username,
     pub email: EmailAddress,
     pub roles: Vec<Role>,
     pub is_active: bool,
@@ -13,10 +13,10 @@ pub struct User {
 
 impl User {
     /// Creates a new User.
-    pub fn new(username: String, email: &str) -> Result<Self, UserError> {
+    pub fn new(username: &str, email: &str) -> Result<Self, UserError> {
         Ok(Self {
             id: uuid::Uuid::new_v4(),
-            username: username,
+            username: Username::new(username.to_string())?,
             email: EmailAddress::new(email.to_string())?,
             roles: vec![Role::BasicUser],
             is_active: true,
@@ -54,6 +54,33 @@ pub enum Role {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Username(String);
+
+impl Username {
+    /// Creates a Username.
+    /// Only accepts letters and numbers (alphanumeric).
+    /// Rejects spaces and symbols.
+    /// Automatically converts the input to lowercase.
+    pub fn new(username: String) -> Result<Self, UserError> {
+        if username.is_empty() {
+            return Err(UserError::InvalidUsername);
+        }
+
+        for c in username.chars() {
+            if !c.is_alphanumeric() {
+                return Err(UserError::InvalidUsername);
+            }
+        }
+
+        Ok(Self(username.to_lowercase()))
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EmailAddress(String);
 
 impl EmailAddress {
@@ -73,14 +100,21 @@ impl EmailAddress {
 
 #[derive(Error, Debug)]
 pub enum UserError {
+    #[error("The username provided is invalid.")]
+    InvalidUsername,
+
     #[error("The email address provided is invalid.")]
     InvalidEmail,
+
     #[error("Password must be at least 8 characters.")]
     PasswordTooShort,
+
     #[error("This user is already deactivated.")]
     UserAlreadyDeactivated,
+
     #[error("User lacks the required role.")]
     InsufficientPermissions,
+
 }
 
 pub struct UserAuthenticator {
@@ -110,8 +144,8 @@ impl UserAuthenticator {
     }
 
     /// Helper to create a local password authenticator
-    pub fn new_local(user_id: Uuid, passwd: String) -> Self {
-        Self::new(user_id, AuthProvider::Local, None, Some(passwd))
+    pub fn new_local(user_id: Uuid, passwd_hash: String) -> Self {
+        Self::new(user_id, AuthProvider::Local, None, Some(passwd_hash))
     }
 
     /// Helper to create an OAuth authenticator

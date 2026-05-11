@@ -1,4 +1,4 @@
-pub mod creds;
+pub mod local;
 pub mod oauth;
 
 use std::sync::Arc;
@@ -131,7 +131,11 @@ impl From<AuthUseCaseError> for ApiError {
         match e {
             AuthUseCaseError::InvalidPassword => {
                 warn!("Invalid password: {e}");
-                ApiError::Unauthorized("Invalid password.".to_string())
+                ApiError::Unauthorized("No user with these credentials was found.".to_string())
+            }
+            AuthUseCaseError::UserNotFound => {
+                warn!("User not found : {e}");
+                ApiError::Unauthorized("No user with these credentials was found.".to_string())
             }
             AuthUseCaseError::InvalidRefreshToken => {
                 warn!("Invalid refresh token: {e}");
