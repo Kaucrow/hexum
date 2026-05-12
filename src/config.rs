@@ -108,7 +108,6 @@ impl PostgresConfig {
 pub struct RedisConfig {
     pub host: String,
     pub port: u16,
-    pub user: String,
     pub passwd: String,
     pub number: u32,
 }
@@ -118,9 +117,10 @@ impl RedisConfig {
         if self.passwd.is_empty() {
             format!("redis://{}:{}/{}", self.host, self.port, self.number)
         } else {
-            format!("redis://{}:{}@{}:{}/{}",
-                self.user, self.passwd,
-                self.host, self.port, self.number)
+            format!(
+                "redis://{}@{}:{}/{}",
+                self.passwd, self.host, self.port, self.number
+            )
         }
     }
 }
