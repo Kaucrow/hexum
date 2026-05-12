@@ -84,7 +84,7 @@ impl AuthService {
         provider_id: String,
     ) -> Result<User, AuthUseCaseError> {
         let suffix = Alphanumeric.sample_string(&mut rand::rng(), 6);
-        let temp_username = format!("user_{}", suffix);
+        let temp_username = format!("user{}", suffix);
 
         let user = User::new(&temp_username, &email.as_str()).map_err(|e| AuthUseCaseError::Internal(e.to_string()))?;
         let auth = UserAuthenticator::new_oauth(user.id, provider, provider_id);

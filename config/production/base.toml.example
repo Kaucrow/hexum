@@ -3,26 +3,26 @@ debug = true
 [api]
 enable_dev_endpoints = true
 host = "0.0.0.0"
-domain = ""
+domain = "hexum-production.up.railway.app"
 port = 8080
 protocol = "http"
 docs_endpoint = "docs"
 
 [frontend]
-domain = "localhost"
+domain = "hexum-production.up.railway.app"
 port = 8080
-protocol = "http"
+protocol = "https"
 
 [postgresql]
 pool_max_conn = 5
-host = "localhost"
+host = "postgres.railway.internal"
 port = 5432
 user = ""
 passwd = ""
 name = ""
 
 [redis]
-host = "localhost"
+host = "redis.railway.internal"
 port = 6379
 passwd = ""
 number = "0"
