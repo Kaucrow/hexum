@@ -1,11 +1,12 @@
-# Hexum
-#### Axum Hexagonal API
+<h1>Hexum</h1>
+<h3>Axum Hexagonal API</h3>
+<br>
 
 A scalable, production-ready REST API built with Rust using the Axum framework. This project follows Hexagonal Architecture principles to ensure the business logic remains decoupled from infrastructure concerns like databases and external APIs.
 
-### Hexagonal Architecture
+## Hexagonal Architecture
 
-The project is structured to ensure that business rules are independent of external frameworks, databases, and UI.
+The project is structured to ensure that business rules are independent of external frameworks, databases, and tools.
 
 * `domain/`: The core of the application. Contains pure business logic, entities, and Value Objects. It has zero dependencies on other layers.
 
@@ -21,11 +22,11 @@ The project is structured to ensure that business rules are independent of exter
 
 * `presentation/`: The entry point for the outside world. Contains the HTTP routes, Axum handlers, request/response DTOs, and OpenAPI definitions.
 
-### Authentication Architecture
+## Authentication Architecture
 
-The system uses a robust access+refresh token strategy with PASETO (Platform-Agnostic Security Tokens).
+The system uses a robust **access+refresh** token strategy with PASETO (Platform-Agnostic Security Tokens).
 
-#### Token specification
+### Token specification
 **Access Token:**
 * Lifetime: 15 Minutes
 * Storage: HttpOnly, Secure, SameSite=Strict Cookie.
@@ -34,7 +35,8 @@ The system uses a robust access+refresh token strategy with PASETO (Platform-Agn
 * Lifetime: 7 Days
 * Storage: HttpOnly, Secure, SameSite=Strict Cookie and indexed in Redis for session revocation.
 
-### Authentication Flow
+## Authentication Flow
+```mermaid
 graph TD
     A[Client] -->|Login: Local or OAuth| B(Auth Service)
     B -->|Validate Credentials| C{Valid?}
@@ -49,3 +51,4 @@ graph TD
     I -->|Yes| J[Rotate Tokens]
     J --> A
     I -->|No| K[Force Re-login]
+```
