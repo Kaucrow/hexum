@@ -2,7 +2,7 @@
 <h3>Axum Hexagonal API</h3>
 <br>
 
-A scalable, production-ready REST API built with Rust using the Axum framework. This project follows Hexagonal Architecture principles to ensure the business logic remains decoupled from infrastructure concerns like databases and external APIs.
+A scalable, production-ready **REST API** built with **Rust** and **Axum**, featuring a custom authentication system supporting **Local** (Email/Username & Password) and **OAuth2** (Google & GitHub) providers. This project implements **Hexagonal Architecture** to ensure core business logic remains decoupled from infrastructure concerns like PostgreSQL, Redis, and external APIs.
 
 ## Hexagonal Architecture
 
