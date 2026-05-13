@@ -6,7 +6,7 @@ services:
       - redis
 
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18-bookworm
     environment:
       - POSTGRES_USER=${PG_USER}
       - POSTGRES_PASSWORD=${PG_PASSWORD}
