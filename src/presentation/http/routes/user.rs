@@ -140,11 +140,11 @@ impl From<UserUseCaseError> for ApiError {
         match e {
             UserUseCaseError::UsernameInUse => {
                 warn!("{e}");
-                ApiError::Conflict("The username provided is already in use.".to_string())
+                ApiError::Conflict("A user with this username already exists.".to_string())
             }
             UserUseCaseError::EmailInUse => {
                 warn!("{e}");
-                ApiError::Conflict("The email provided is already in use.".to_string())
+                ApiError::Conflict("A user with this email already exists.".to_string())
             }
             UserUseCaseError::Internal(e) => {
                 error!("An internal error occurred: {e}");
