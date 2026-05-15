@@ -18,7 +18,6 @@ pub trait UserRepository: Send + Sync + 'static {
 
     // --- User modification ---
     async fn add_new_user(&self, user: User) -> Result<(), UserRepositoryError>;
-    async fn activate_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError>;
     async fn delete_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError>;
 
     // --- Authentication ---
@@ -27,6 +26,8 @@ pub trait UserRepository: Send + Sync + 'static {
         user_id: &Uuid,
         auth_provider: AuthProvider,
     ) -> Result<Option<UserAuthenticator>, UserRepositoryError>;
+
+    async fn verify_local_auth_by_user_id(&self, id: &Uuid) -> Result<(), UserRepositoryError>;
 
     async fn add_authenticator(
         &self,

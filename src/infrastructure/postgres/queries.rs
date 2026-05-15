@@ -13,13 +13,13 @@ pub struct User {
     pub get_by_username: String,
     pub get_by_email: String,
     pub insert: String,
-    pub activate_by_id: String,
     pub delete_by_id: String,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct UserAuthenticator {
     pub get_by_user_id_and_provider: String,
+    pub verify_local_by_user_id: String,
     pub insert: String,
 }
 

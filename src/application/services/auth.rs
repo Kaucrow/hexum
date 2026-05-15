@@ -123,13 +123,19 @@ impl AuthUseCase for AuthService {
         };
 
         if !user.is_active {
-            return Err(AuthUseCaseError::UserInactive)
+            return Err(AuthUseCaseError::UserInactive);
         }
 
         let local_authenticator = self.user_repo
             .get_authenticator(&user.id, AuthProvider::Local)
             .await?
             .ok_or(AuthUseCaseError::UserNotFound)?;
+
+        if let Some(is_verified) = local_authenticator.is_verified {
+            if !is_verified {
+                return Err(AuthUseCaseError::UserNotVerified);
+            }
+        }
 
         let passwd_hash = local_authenticator.passwd
             .ok_or(AuthUseCaseError::Internal("User with local auth has no password set.".to_string()))?;

@@ -39,6 +39,9 @@ pub enum AuthUseCaseError {
     #[error("The user is inactive.")]
     UserInactive,
 
+    #[error("The user email hasn't been verified.")]
+    UserNotVerified,
+
     #[error("Parsing error: {0}")]
     Parse(String),
 

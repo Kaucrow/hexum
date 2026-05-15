@@ -72,6 +72,7 @@ impl PostgresAdapter {
             provider: auth_provider,
             provider_id: row.provider_id,
             passwd: row.passwd,
+            is_verified: row.is_verified,
         });
 
         Ok(record)
@@ -92,10 +93,10 @@ impl PostgresAdapter {
         Ok(())
     }
 
-    async fn do_activate_user_by_id(&self, id: &Uuid) -> Result<(), LocalError> {
+    async fn do_verify_local_auth_by_user_id(&self, id: &Uuid) -> Result<(), LocalError> {
         let queries = QUERIES.get().expect("Queries not initialized.");
 
-        sqlx::query(&queries.user.activate_by_id)
+        sqlx::query(&queries.user_authenticator.verify_local_by_user_id)
             .bind(id)
             .execute(&self.pool)
             .await?;
@@ -199,10 +200,6 @@ impl UserRepository for PostgresAdapter {
         Ok(self.do_add_new_user(user).await?)
     }
 
-    async fn activate_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError> {
-        Ok(self.do_activate_user_by_id(id).await?)
-    }
-
     async fn delete_user_by_id(&self, id: &Uuid) -> Result<(), UserRepositoryError> {
         Ok(self.do_delete_user_by_id(id).await?)
     }
@@ -213,6 +210,10 @@ impl UserRepository for PostgresAdapter {
         auth_provider: AuthProvider,
     ) -> Result<Option<UserAuthenticator>, UserRepositoryError> {
         Ok(self.do_get_authenticator(user_id, auth_provider).await?)
+    }
+
+    async fn verify_local_auth_by_user_id(&self, id: &Uuid) -> Result<(), UserRepositoryError> {
+        Ok(self.do_verify_local_auth_by_user_id(id).await?)
     }
 
     async fn add_authenticator(

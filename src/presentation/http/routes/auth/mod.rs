@@ -143,7 +143,11 @@ impl From<AuthUseCaseError> for ApiError {
             }
             AuthUseCaseError::UserInactive => {
                 warn!("User is inactive: {e}");
-                ApiError::Unauthorized("The user is inactive. Make sure that the email address has been verified.".to_string())
+                ApiError::Unauthorized("The user has been disabled.".to_string())
+            }
+            AuthUseCaseError::UserNotVerified => {
+                warn!("User email has not been verified: {e}");
+                ApiError::Unauthorized("The user email has not been verified.".to_string())
             }
             AuthUseCaseError::Internal(e) => {
                 error!("An internal error occurred: {e}");

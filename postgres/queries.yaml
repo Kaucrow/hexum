@@ -18,11 +18,6 @@ user:
     INSERT INTO "user" (id, username, email, roles, is_active)
     VALUES ($1, $2, $3, $4, $5)
 
-  activate_by_id: |
-    UPDATE "user"
-    SET is_active = TRUE
-    WHERE id = $1
-
   delete_by_id: |
     DELETE FROM "user"
     WHERE id = $1
@@ -32,6 +27,11 @@ user_authenticator:
     SELECT id, user_id, provider, provider_id, passwd
     FROM user_authenticator
     WHERE user_id = $1 AND provider = $2
+
+  verify_local_by_user_id: |
+    UPDATE user_authenticator
+    SET is_verified = TRUE
+    WHERE user_id = $1 AND PROVIDER = 'Local'
 
   insert: |
     INSERT INTO user_authenticator (id, user_id, provider, provider_id, passwd)

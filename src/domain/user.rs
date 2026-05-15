@@ -123,6 +123,7 @@ pub struct UserAuthenticator {
     pub provider: AuthProvider,
     pub provider_id: Option<String>,    // OAuth provider ID or None for 'Local' provider
     pub passwd: Option<String>,         // Hashed password or None for OAuth provider
+    pub is_verified: Option<bool>,      // Email verified flag or None for OAuth provider
 }
 
 impl UserAuthenticator {
@@ -133,6 +134,7 @@ impl UserAuthenticator {
         provider: AuthProvider,
         provider_id: Option<String>,
         passwd: Option<String>,
+        is_verified: Option<bool>,
     ) -> Self {
         Self {
             id: Uuid::new_v4(),
@@ -140,17 +142,18 @@ impl UserAuthenticator {
             provider,
             provider_id,
             passwd,
+            is_verified,
         }
     }
 
     /// Helper to create a local password authenticator
     pub fn new_local(user_id: Uuid, passwd_hash: String) -> Self {
-        Self::new(user_id, AuthProvider::Local, None, Some(passwd_hash))
+        Self::new(user_id, AuthProvider::Local, None, Some(passwd_hash), Some(false))
     }
 
     /// Helper to create an OAuth authenticator
     pub fn new_oauth(user_id: Uuid, provider: AuthProvider, external_id: String) -> Self {
-        Self::new(user_id, provider, Some(external_id), None)
+        Self::new(user_id, provider, Some(external_id), None, None)
     }
 }
 

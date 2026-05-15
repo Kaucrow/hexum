@@ -61,7 +61,9 @@ impl UserUseCase for UserService {
     }
 
     async fn verify_user_account(&self, token: &str) -> Result<(), UserUseCaseError> {
-        self.verification.consume_verification_token(token).await?;
+        let user_id = self.verification.consume_verification_token(token).await?;
+        self.user_repo.verify_local_auth_by_user_id(&user_id).await?;
+
         Ok(())
     }
 }

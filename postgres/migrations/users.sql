@@ -16,6 +16,8 @@ CREATE TABLE user_authenticator (
     provider_id VARCHAR(255),
     -- The hashed password or NULL for OAuth
     passwd TEXT,
+    -- Email verified flag or NULL for OAuth
+    is_verified BOOLEAN,
 
     -- Ensure a user can't have two accounts linked with the same provider
     UNIQUE(user_id, provider),

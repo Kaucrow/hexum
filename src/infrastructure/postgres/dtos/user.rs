@@ -17,4 +17,5 @@ pub struct UserAuthenticatorDbRow {
     pub provider: String,
     pub provider_id: Option<String>,
     pub passwd: Option<String>,
+    pub is_verified: Option<bool>,
 }
