@@ -87,6 +87,7 @@ impl PostgresAdapter {
             .bind(user_authenticator.provider.to_string())
             .bind(user_authenticator.provider_id)
             .bind(user_authenticator.passwd)
+            .bind(user_authenticator.is_verified)
             .execute(&self.pool)
             .await?;
 

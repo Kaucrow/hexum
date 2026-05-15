@@ -24,7 +24,7 @@ user:
 
 user_authenticator:
   get_by_user_id_and_provider: |
-    SELECT id, user_id, provider, provider_id, passwd
+    SELECT id, user_id, provider, provider_id, passwd, is_verified
     FROM user_authenticator
     WHERE user_id = $1 AND provider = $2
 
@@ -34,5 +34,5 @@ user_authenticator:
     WHERE user_id = $1 AND PROVIDER = 'Local'
 
   insert: |
-    INSERT INTO user_authenticator (id, user_id, provider, provider_id, passwd)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO user_authenticator (id, user_id, provider, provider_id, passwd, is_verified)
+    VALUES ($1, $2, $3, $4, $5, $6)
