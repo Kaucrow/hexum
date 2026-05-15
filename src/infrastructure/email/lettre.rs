@@ -27,7 +27,7 @@ impl LettreEmailAdapter {
         let html_body = template.render()?;
 
         let email = Message::builder()
-            .from("No Reply <noreply@hexum.dev>".parse()?)
+            .from(self.from_addr.parse()?)
             .to(to.as_str().parse()?)
             .subject("Verify your account")
             .multipart(

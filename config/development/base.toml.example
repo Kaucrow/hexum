@@ -27,7 +27,9 @@ port = 6379
 passwd = ""
 number = "0"
 
-[smtp]
+[email]
+provider = "smtp"
+from = "noreply@kaucrow.com"
 host = "smtp.gmail.com"
 port = 587
 user = ""

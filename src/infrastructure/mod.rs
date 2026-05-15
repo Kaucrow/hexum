@@ -9,5 +9,5 @@ pub use postgres::PostgresAdapter;
 pub use session::RedisSessionAdapter;
 pub use security::PasetoSecurityAdapter;
 pub use verification::RedisVerificationAdapter;
-pub use email::LettreEmailAdapter;
+pub use email::{LettreEmailAdapter, ResendEmailAdapter};
 pub use oauth::OAuthAdapter;

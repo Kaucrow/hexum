@@ -27,11 +27,10 @@ port = 6379
 passwd = ""
 number = "0"
 
-[smtp]
-host = "smtp.gmail.com"
-port = 587
-user = ""
-passwd = ""
+[email]
+provider = "resend"
+from = "noreply@kaucrow.com"
+api_key = ""
 
 [oauth]
 login_ui_endpoint = "auth/oauth/login-ui"

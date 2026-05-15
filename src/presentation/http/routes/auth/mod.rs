@@ -13,8 +13,8 @@ use time::Duration;
 use crate::{
     Config,
     AppState,
-    ApiProtocol,
     prelude::*,
+    config::ApiProtocol,
     application::{
         ports::input::{AuthUseCase, AuthUseCaseError},
     },

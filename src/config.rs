@@ -1,6 +1,7 @@
 use crate::prelude::*;
 use strum::{Display, EnumString};
 use local_ip_address::local_ip;
+use anyhow::{Result, anyhow};
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
@@ -13,9 +14,7 @@ pub struct Config {
     #[serde(rename = "postgresql")]
     pub postgres: PostgresConfig,
     pub redis: RedisConfig,
-    #[serde(default)]
-    pub session: SessionConfig,
-    pub smtp: SmtpConfig,
+    pub email: EmailConfig,
     pub oauth: OAuthConfig,
 }
 
@@ -125,8 +124,35 @@ impl RedisConfig {
     }
 }
 
-#[derive(Deserialize, Clone, Default)]
-pub struct SessionConfig {}
+#[derive(Deserialize, Clone)]
+pub struct EmailConfig {
+    #[serde(flatten)]
+    pub sender: EmailSender,
+    pub from: String,
+}
+
+#[derive(Deserialize, Clone)]
+#[serde(tag = "provider", rename_all = "lowercase")]
+pub enum EmailSender {
+    Smtp(SmtpConfig),
+    Resend(ResendConfig),
+}
+
+impl EmailSender {
+    pub fn smtp_config(&self) -> Result<&SmtpConfig> {
+        match self {
+            EmailSender::Smtp(cfg) => Ok(cfg),
+            EmailSender::Resend(_) => Err(anyhow!("Expected SMTP configuration, but Resend was provided.")),
+        }
+    }
+
+    pub fn resend_config(&self) -> Result<&ResendConfig> {
+        match self {
+            EmailSender::Smtp(_) => Err(anyhow!("Expected Resend configuration, but SMTP was provided.")),
+            EmailSender::Resend(cfg) => Ok(cfg),
+        }
+    }
+}
 
 #[derive(Deserialize, Clone)]
 pub struct SmtpConfig {
@@ -134,6 +160,11 @@ pub struct SmtpConfig {
     pub port: u16,
     pub user: String,
     pub passwd: String,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct ResendConfig {
+    pub api_key: String,
 }
 
 #[derive(Deserialize, Clone)]

@@ -10,14 +10,19 @@ use hexum::{
     AppState,
     get_config,
     prelude::*,
+    config::EmailSender,
     telemetry,
-    application::services::{AuthService, UserService},
+    application::{
+        ports::output::EmailPort,
+        services::{AuthService, UserService}
+    },
     infrastructure::{
         PostgresAdapter,
         RedisSessionAdapter,
         PasetoSecurityAdapter,
         RedisVerificationAdapter,
         LettreEmailAdapter,
+        ResendEmailAdapter,
         OAuthAdapter,
     },
     presentation::http::{self, routes},
@@ -46,13 +51,17 @@ async fn main() -> Result<()> {
     );
 
     let redis_verification_adapter = Arc::new(RedisVerificationAdapter::new(&config).await?);
-    let lettre_email_adapter = Arc::new(LettreEmailAdapter::new(&config)?);
+    let email_adapter: Arc<dyn EmailPort> = if let EmailSender::Smtp(_) = config.email.sender {
+        Arc::new(LettreEmailAdapter::new(&config)?)
+    } else {
+        Arc::new(ResendEmailAdapter::new(&config)?)
+    };
 
     let user_service = UserService::new(
         pg_adapter,
         redis_verification_adapter,
         paseto_security_adapter,
-        lettre_email_adapter,
+        email_adapter,
     );
 
     let state = AppState {

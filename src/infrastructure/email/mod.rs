@@ -1,4 +1,5 @@
 mod adapter;
-mod verification;
+mod lettre;
+mod resend;
 
-pub use adapter::LettreEmailAdapter;
+pub use adapter::{LettreEmailAdapter, ResendEmailAdapter};
